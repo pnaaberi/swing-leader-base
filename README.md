@@ -10,7 +10,7 @@ This is an indicator, not a trading strategy or order-execution system. Profile 
 
 ## Status
 
-Source preparation in progress. TradingView compilation and chart behavior have not been verified.
+Version 0.1.0: nonessential comments, disabled custom-alert code and excess blank lines removed. All 772 executable lines, 94 inputs and 17 alert conditions are unchanged. Source-equivalence and mutation-detection checks passed; TradingView compilation and chart behavior remain unverified.
 
 ## Attribution and licenses
 

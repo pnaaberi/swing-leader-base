@@ -1,0 +1,857 @@
+//@version=6
+
+indicator("Swing Leader Base · VPVR + Order Block S/R + Market Bias", "SLB + MB", overlay=true, dynamic_requests=false,
+     max_boxes_count=500, max_lines_count=100, max_labels_count=500, max_bars_back=2000)
+
+const string G_SETUP = "1 · Setup rules"
+const string G_VOL = "2 · Volume rules"
+const string G_RISK = "3 · Risk levels"
+const string G_STYLE = "4 · Minimal display"
+const string G_VP = "5 · Visible / fixed-range volume profile"
+const string G_SR = "6 · Support and resistance"
+const string G_EXTRA = "7 · Optional overlays"
+const string G_CANDLE = "8 · Optional candle profiles"
+fastLen = input.int(10, "Fast EMA", minval=2, maxval=500, group=G_SETUP, inline="ma")
+slowLen = input.int(20, "Slow EMA", minval=3, maxval=500, group=G_SETUP, inline="ma")
+trendLen = input.int(50, "Trend SMA", minval=20, maxval=500, group=G_SETUP, inline="ma")
+baseLookback = input.int(20, "Base bars", minval=8, maxval=250, group=G_SETUP)
+leaderLookback = input.int(60, "Leader bars", minval=20, maxval=1000, group=G_SETUP)
+minMovePct = input.float(30.0, "Leader move min %", minval=5, group=G_SETUP)
+maxDepthPct = input.float(28.0, "Base depth max %", minval=5, group=G_SETUP)
+maxExtension = input.float(12.0, "EMA extension max %", minval=2, group=G_SETUP)
+minScore = input.int(5, "Setup score min", minval=3, maxval=7, group=G_SETUP)
+requireHTF = input.bool(true, "Require confirmed weekly trend", group=G_SETUP,
+     tooltip="Uses the previous completed week. With this enabled, entries require a chart timeframe of one week or lower.")
+
+volumeLen = input.int(50, "Volume average bars", minval=10, maxval=500, group=G_VOL)
+breakVolMult = input.float(1.5, "Breakout volume min × average", minval=0.5, group=G_VOL)
+pullVolMult = input.float(0.75, "Pullback volume max × average", minval=0.1, group=G_VOL)
+atrLen = input.int(14, "ATR bars", minval=5, maxval=500, group=G_RISK)
+atrStopMult = input.float(1.2, "ATR stop multiplier", minval=0.5, group=G_RISK)
+rewardRisk = input.float(2.0, "Target R", minval=1.0, group=G_RISK)
+showTradeMarkers = input.bool(true, "Full-word signal labels", group=G_STYLE)
+markerFontSize = input.int(1, "Signal font size", minval=1, maxval=12, group=G_STYLE,
+     tooltip="1 is Pine v6's smallest positive numeric text size and is extremely small. About 7 matches the usual tiny label preset.")
+
+markerKeep = input.int(250, "Signal labels to retain", minval=20, maxval=350, group=G_STYLE)
+markerGap = input.float(0.22, "Signal spacing × ATR", minval=0.05, maxval=2.0, step=0.05, group=G_STYLE)
+showMAs = input.bool(true, "Moving averages", group=G_STYLE)
+showRibbon = input.bool(false, "Very faint EMA ribbon", group=G_STYLE)
+showLevels = input.bool(true, "Active stop / target", group=G_STYLE)
+showBarTint = input.bool(false, "Very faint bar tint", group=G_STYLE)
+guideMode = input.string("Compact", "Guide", options=["Off", "Compact", "Checklist"], group=G_STYLE)
+guidePosition = input.string(position.top_left, "Guide position",
+     options=[position.top_left, position.top_right, position.bottom_left, position.bottom_right], group=G_STYLE)
+
+mintColor = input.color(color.rgb(164, 216, 190), "Breakout / support", group=G_STYLE, inline="c1")
+blueColor = input.color(color.rgb(171, 199, 235), "Pullback / profile", group=G_STYLE, inline="c1")
+roseColor = input.color(color.rgb(237, 177, 186), "Stop / resistance", group=G_STYLE, inline="c2")
+lilacColor = input.color(color.rgb(205, 184, 230), "Target / POC", group=G_STYLE, inline="c2")
+peachColor = input.color(color.rgb(236, 208, 174), "Slow EMA / Fibonacci", group=G_STYLE)
+useNativeVRVP = input.bool(false, "Use native TradingView VRVP instead of custom", group=G_VP,
+     tooltip="Off = draw this script's full custom VPVR in the blank area to the right of the visible candles. On = hide the custom histogram/POC/VA and use TradingView's native Visible Range Volume Profile separately.")
+
+showVPVR = input.bool(true, "Calculate custom profile / volume shelves", group=G_VP,
+     tooltip="Enables this script's own profile calculations and shelf areas. In companion mode, the external native VRVP supplies the histogram and POC/VA levels.")
+
+vpMode = input.string("Visible range", "Range", options=["Visible range", "Last N bars"], group=G_VP)
+vpBars = input.int(250, "N bars", minval=30, maxval=1500, group=G_VP)
+vpMaxBars = input.int(1500, "Visible-range bar cap", minval=100, maxval=1500, group=G_VP,
+     tooltip="When more bars are visible, only the newest capped number are profiled. The profile caption reports this.")
+
+vpRows = input.int(64, "Price rows", minval=12, maxval=100, group=G_VP)
+vpWidthPct = input.float(18.0, "Histogram width % of range", minval=5, maxval=40, group=G_VP)
+vpRightGapBars = input.int(3, "Histogram gap from candles (bars)", minval=1, maxval=100, group=G_VP,
+     tooltip="Moves the custom VPVR completely into blank space to the right of the rightmost profiled candle. Pine cannot pixel-dock to the viewport edge, so this bar gap controls the separation.")
+
+vpAllocation = input.string("High-low overlap", "Volume allocation",
+     options=["High-low overlap", "Close only"], group=G_VP,
+     tooltip="High-low overlap distributes each chart candle's volume uniformly over its range. Close only places all volume in its close row. Both are approximations.")
+
+vpTransparency = input.int(45, "Histogram transparency", minval=0, maxval=95, group=G_VP)
+vpShowPOC = input.bool(true, "Custom POC line and band (companion off)", group=G_VP)
+vpShowVA = input.bool(true, "Custom value-area high / low (companion off)", group=G_VP)
+vpValueArea = input.float(70.0, "Value area %", minval=10, maxval=100, group=G_VP)
+vpFillVA = input.bool(false, "Fill custom value area (companion off)", group=G_VP)
+vpShowShelves = input.bool(true, "Approximate high-volume shelf areas", group=G_VP,
+     tooltip="Uses this script's chart-OHLCV allocation, not the external VRVP's lower-timeframe data. Shelves can differ from native histogram peaks even with the same selected range.")
+
+vpShelfThreshold = input.float(65.0, "Shelf row volume ≥ % of POC", minval=25, maxval=95, group=G_VP)
+vpShelfKeep = input.int(3, "Strongest shelves to show", minval=1, maxval=8, group=G_VP)
+vpShelfTransparency = input.int(92, "Shelf transparency", minval=75, maxval=98, group=G_VP)
+vpShowLabels = input.bool(true, "Profile labels and range caption", group=G_VP)
+showSR = input.bool(true, "Support / resistance areas", group=G_SR)
+srMode = input.string("Volume order blocks", "Zone source",
+     options=["Volume order blocks", "Price pivots (original)"], group=G_SR,
+     tooltip="Volume mode uses LuxAlgo's volume-pivot/state and half-candle boundaries. Price mode keeps the original pivot/ATR logic. Neither method is proven superior by this indicator.")
+
+obLength = input.int(5, "Order block volume pivot length", minval=1, maxval=100, group=G_SR,
+     tooltip="A pivot requires this many bars on each side. With 5, the area becomes known 5 bars after its source candle. Zones begin at confirmation, not retrospectively.")
+
+obMitigation = input.string("Close", "Order block invalidation", options=["Close", "Wick"], group=G_SR,
+     tooltip="Close: remove support after a close below its bottom, resistance after a close above its top. Wick: use the candle low/high. Both wait for bar close. The full confirmation window is checked, matching the supplied detection logic.")
+
+obShowMid = input.bool(true, "Order block midpoint lines", group=G_SR)
+obMidStyle = input.string("Dotted", "Midpoint line style", options=["Solid", "Dashed", "Dotted"], group=G_SR)
+obMidWidth = input.int(1, "Midpoint line width", minval=1, maxval=4, group=G_SR)
+obSupportMid = input.color(color.new(#A4D8BE, 40), "Support midpoint", group=G_SR, inline="obmid")
+obResistanceMid = input.color(color.new(#EDB1BA, 40), "Resistance midpoint", group=G_SR, inline="obmid")
+srLeft = input.int(5, "Pivot left", minval=2, maxval=20, group=G_SR, inline="pivot")
+srRight = input.int(5, "right", minval=2, maxval=20, group=G_SR, inline="pivot")
+srHalfWidth = input.float(0.30, "Zone half-width × pivot ATR", minval=0.05, maxval=2.0, step=0.05, group=G_SR)
+srKeep = input.int(3, "Zones per side", minval=1, maxval=6, group=G_SR)
+srExtend = input.int(30, "Zone text anchor offset (bars)", minval=1, maxval=100, group=G_SR,
+     tooltip="Sets the finite right coordinate for zone text. Price zones extend right without a fixed bar limit. Text itself is not viewport-docked.")
+
+srMaxAge = input.int(500, "Expire after bars", minval=30, maxval=1500, group=G_SR)
+srTransparency = input.int(92, "Zone transparency", minval=75, maxval=98, group=G_SR)
+srLabels = input.bool(true, "Write Support / Resistance", group=G_SR,
+     tooltip="Both modes start zones at confirmation. Original pivots invalidate on a closing-price break; order blocks use the selected Close/Wick method. Fill colors use Breakout / support and Stop / resistance in Minimal display.")
+
+showFibZones = input.bool(false, "Fibonacci zones", group=G_EXTRA)
+fibLookback = input.int(80, "Fib bars", minval=20, maxval=300, group=G_EXTRA)
+fibForward = input.int(20, "Fib forward bars", minval=1, maxval=100, group=G_EXTRA)
+showBOS = input.bool(false, "Confirmed break of structure", group=G_EXTRA)
+bosLeft = input.int(5, "BOS pivot left", minval=2, maxval=20, group=G_EXTRA, inline="bos")
+bosRight = input.int(5, "right", minval=2, maxval=20, group=G_EXTRA, inline="bos")
+bosKeep = input.int(8, "BOS lines to retain", minval=1, maxval=20, group=G_EXTRA)
+showSessionVP = input.bool(false, "Show intrabar candle profiles", group=G_CANDLE)
+sessionVpScope = input.string("Last candle", "Scope", options=["Last candle", "Recent candles"], group=G_CANDLE)
+sessionVpCount = input.int(10, "Requested recent candles", minval=1, maxval=40, group=G_CANDLE)
+sessionVpRows = input.int(24, "Rows per candle", minval=8, maxval=40, group=G_CANDLE)
+sessionVpWidth = input.float(88.0, "Candle width %", minval=20, maxval=100, group=G_CANDLE)
+sessionVpAlignment = input.string("Left", "Alignment", options=["Left", "Right"], group=G_CANDLE)
+sessionVpDisplay = input.string("Up/Down split", "Row display",
+     options=["Up/Down split", "Direction imbalance"], group=G_CANDLE,
+     tooltip="Direction is based on lower-timeframe candle close versus open, NOT actual bid/ask delta.")
+
+sessionVpShowPoc = input.bool(true, "Candle POC", group=G_CANDLE)
+sessionVpTransparency = input.int(45, "Candle profile transparency", minval=0, maxval=90, group=G_CANDLE)
+sessionVpTf = input.timeframe("5", "Lower timeframe", group=G_CANDLE)
+sessionVpSource = input.string("HLC3", "Volume price", options=["Close", "HLC3"], group=G_CANDLE)
+
+const int CANDLE_BOX_BUDGET = 320
+var array<label> signalLabels = array.new<label>()
+var array<line> bosLines = array.new<line>()
+var array<box> supportBoxes = array.new<box>()
+var array<box> resistanceBoxes = array.new<box>()
+var array<box> vpBoxes = array.new<box>()
+var array<line> vpLines = array.new<line>()
+var array<label> vpLabels = array.new<label>()
+var array<box> candleBoxes = array.new<box>()
+var array<line> candleLines = array.new<line>()
+
+clearBoxes(array<box> ids) =>
+    while array.size(ids) > 0
+        box.delete(array.pop(ids))
+
+clearLines(array<line> ids) =>
+    while array.size(ids) > 0
+        line.delete(array.pop(ids))
+
+clearLabels(array<label> ids) =>
+    while array.size(ids) > 0
+        label.delete(array.pop(ids))
+
+signalLabel(float y, string words, color pastel, bool below, string tip) =>
+    if array.size(signalLabels) >= markerKeep
+        label.delete(array.shift(signalLabels))
+    array.push(signalLabels, label.new(bar_index, y, words,
+         yloc=yloc.price, style=below ? label.style_label_up : label.style_label_down,
+         color=color.new(pastel, 12), textcolor=color.rgb(46, 51, 60),
+         size=markerFontSize, textalign=text.align_center, tooltip=tip))
+
+profileLevel(int leftBar, int rightBar, float price, string words, color pastel, bool dotted) =>
+    array.push(vpLines, line.new(leftBar, price, rightBar, price, xloc=xloc.bar_index, extend=extend.none,
+         color=color.new(pastel, 10), width=dotted ? 1 : 2,
+         style=dotted ? line.style_dotted : line.style_solid))
+    if vpShowLabels
+        array.push(vpLabels, label.new(rightBar, price, words + " " + str.tostring(price, format.mintick),
+             xloc=xloc.bar_index, style=label.style_label_right,
+             color=color.new(pastel, 12), textcolor=color.rgb(46, 51, 60), size=size.tiny))
+
+emaFast = ta.ema(close, fastLen)
+emaSlow = ta.ema(close, slowLen)
+smaTrend = ta.sma(close, trendLen)
+atr = ta.atr(atrLen)
+volAvg = ta.sma(volume, volumeLen)
+rsi = ta.rsi(close, 14)
+[macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
+chartSeconds = timeframe.in_seconds()
+weeklyFilterUsable = not na(chartSeconds) and chartSeconds <= timeframe.in_seconds("W")
+
+weeklyState() =>
+    wFast = ta.ema(close, fastLen)
+    wSlow = ta.ema(close, slowLen)
+    wTrend = ta.sma(close, trendLen)
+    ready = not na(wTrend[1])
+    [ready and wFast[1] > wSlow[1] and close[1] > wTrend[1], ready]
+
+[weeklyTrend, weeklyReady] = request.security(syminfo.tickerid, "W", weeklyState(),
+     gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+baseHigh = ta.highest(high[1], baseLookback)
+baseLow = ta.lowest(low[1], baseLookback)
+priorLow = ta.lowest(low[baseLookback + 1], leaderLookback)
+leaderMovePct = priorLow > 0 and baseHigh > 0 ? (baseHigh / priorLow - 1.0) * 100.0 : na
+baseDepthPct = baseHigh > 0 ? (baseHigh - baseLow) / baseHigh * 100.0 : na
+extensionPct = emaSlow > 0 ? (close / emaSlow - 1.0) * 100.0 : na
+leaderOk = not na(leaderMovePct) and leaderMovePct >= minMovePct
+baseOk = not na(baseDepthPct) and baseDepthPct <= maxDepthPct
+structureOk = leaderOk and baseOk
+notChasing = not na(extensionPct) and extensionPct <= maxExtension
+htfOk = not requireHTF or (weeklyFilterUsable and weeklyTrend)
+trendScore = (close > emaFast ? 1 : 0) + (emaFast > emaSlow ? 1 : 0) +
+     (close > smaTrend ? 1 : 0) + (smaTrend > smaTrend[10] ? 1 : 0) + (htfOk ? 1 : 0)
+
+momentumScore = (rsi > 50 ? 1 : 0) + (macdHist > 0 ? 1 : 0)
+score = trendScore + momentumScore
+hasVolume = not na(volume) and not na(volAvg) and volAvg > 0
+volumeRatio = hasVolume ? volume / volAvg : na
+breakoutVolumeOk = not hasVolume or volumeRatio >= breakVolMult
+pullbackVolumeOk = not hasVolume or volumeRatio <= pullVolMult
+barRange = math.max(high - low, syminfo.mintick)
+strongClose = close >= low + barRange * 0.65
+pivotBreak = not na(baseHigh) and close > baseHigh and close[1] <= baseHigh[1]
+pullback = low <= emaFast and close > emaFast and close > open and close > close[1] and strongClose
+trendOk = close > smaTrend and emaFast > emaSlow and smaTrend > smaTrend[10] and htfOk
+breakoutSetup = trendOk and structureOk and notChasing and score >= minScore and pivotBreak and strongClose and breakoutVolumeOk
+pullbackSetup = trendOk and structureOk and notChasing and score >= minScore and pullback and pullbackVolumeOk
+
+var bool inTrade = false
+var int entryBar = na
+var float entryPrice = na
+var float stopPrice = na
+var float targetPrice = na
+buySignal = barstate.isconfirmed and not inTrade and (breakoutSetup or pullbackSetup)
+stopHit = inTrade and not na(stopPrice) and low <= stopPrice
+targetHit = inTrade and not stopHit and not na(targetPrice) and high >= targetPrice
+stopExit = barstate.isconfirmed and stopHit
+targetExit = barstate.isconfirmed and targetHit
+exitStopLevel = stopPrice
+exitTargetLevel = targetPrice
+
+if barstate.isconfirmed
+    if stopHit or targetHit
+        inTrade := false
+        entryBar := na
+        entryPrice := na
+        stopPrice := na
+        targetPrice := na
+    else if buySignal
+        entryPrice := close
+        stopPrice := math.min(emaSlow - atr * 0.25, close - atr * atrStopMult)
+        targetPrice := entryPrice + (entryPrice - stopPrice) * rewardRisk
+        inTrade := true
+        entryBar := bar_index
+
+labelGap = math.max(nz(atr, high - low) * markerGap, syminfo.mintick * 3)
+
+if showTradeMarkers and buySignal
+    signalLabel(low - labelGap, breakoutSetup ? "Breakout" : "Pullback",
+         breakoutSetup ? mintColor : blueColor, true,
+         "Confirmed at bar close. Reference entry: " + str.tostring(entryPrice, format.mintick))
+
+if showTradeMarkers and stopExit
+    signalLabel(high + labelGap, "Stop", roseColor, false,
+         "Stop level touched: " + str.tostring(exitStopLevel, format.mintick) + ". Not an execution price.")
+
+if showTradeMarkers and targetExit
+    signalLabel(high + labelGap, "Target", lilacColor, false,
+         "Target level touched: " + str.tostring(exitTargetLevel, format.mintick) + ". Not an execution price.")
+
+fastPlot = plot(showMAs ? emaFast : na, "Fast EMA", color=color.new(mintColor, 15))
+slowPlot = plot(showMAs ? emaSlow : na, "Slow EMA", color=color.new(peachColor, 15))
+plot(showMAs ? smaTrend : na, "Trend SMA", color=color.new(chart.fg_color, 60), linewidth=1)
+fill(fastPlot, slowPlot, color=showMAs and showRibbon ? color.new(emaFast >= emaSlow ? mintColor : roseColor, 94) : na)
+plot(showLevels and inTrade ? stopPrice : na, "Active stop", color=roseColor, linewidth=1, style=plot.style_linebr)
+plot(showLevels and inTrade ? targetPrice : na, "Active target", color=lilacColor, linewidth=1, style=plot.style_linebr)
+barcolor(showBarTint ? inTrade ? color.new(mintColor, 65) : trendOk ? color.new(mintColor, 80) : na : na)
+
+maintainZones(array<box> zones, bool support) =>
+    if array.size(zones) > 0
+        for i = array.size(zones) - 1 to 0
+            zone = array.get(zones, i)
+            broken = support ? close < box.get_bottom(zone) : close > box.get_top(zone)
+            expired = bar_index - box.get_left(zone) > srMaxAge
+            if barstate.isconfirmed and (broken or expired)
+                array.remove(zones, i)
+                box.delete(zone)
+            else
+                box.set_right(zone, bar_index + srExtend)
+
+addZone(array<box> zones, float pivot, float halfWidth, bool support) =>
+    top = pivot + halfWidth
+    bottom = pivot - halfWidth
+    validNow = support ? close >= bottom : close <= top
+    overlaps = false
+    if array.size(zones) > 0
+        for i = 0 to array.size(zones) - 1
+            old = array.get(zones, i)
+            if bottom <= box.get_top(old) and top >= box.get_bottom(old)
+                overlaps := true
+    if validNow and not overlaps
+        if array.size(zones) >= srKeep
+            box.delete(array.shift(zones))
+        tint = support ? mintColor : roseColor
+        array.push(zones, box.new(bar_index, top, bar_index + srExtend, bottom, extend=extend.right,
+             bgcolor=color.new(tint, srTransparency), border_color=color.new(tint, 65),
+             text=srLabels ? support ? "Support" : "Resistance" : "",
+             text_color=color.new(chart.fg_color, 20), text_size=size.tiny,
+             text_halign=text.align_right, text_valign=text.align_center))
+
+srHigh = ta.pivothigh(high, srLeft, srRight)
+srLow = ta.pivotlow(low, srLeft, srRight)
+
+if showSR and srMode == "Price pivots (original)"
+    maintainZones(supportBoxes, true)
+    maintainZones(resistanceBoxes, false)
+    if barstate.isconfirmed
+        halfWidth = math.max(nz(atr[srRight], high - low) * srHalfWidth, syminfo.mintick * 2)
+        if not na(srLow)
+            addZone(supportBoxes, srLow, halfWidth, true)
+        if not na(srHigh)
+            addZone(resistanceBoxes, srHigh, halfWidth, false)
+
+// Order-block logic adapted from © LuxAlgo, CC BY-NC-SA 4.0.
+// https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+type SRVolumeZone
+    float top
+    float bottom
+    int confirmedBar
+
+var array<SRVolumeZone> obSupports = array.new<SRVolumeZone>()
+var array<SRVolumeZone> obResistances = array.new<SRVolumeZone>()
+var array<box> obDrawBoxes = array.new<box>()
+var array<line> obDrawLines = array.new<line>()
+
+pruneVolumeZones(array<SRVolumeZone> zones, float target, bool support) =>
+    bool breached = false
+    if array.size(zones) > 0
+        for i = array.size(zones) - 1 to 0
+            zone = array.get(zones, i)
+            broken = support ? target < zone.bottom : target > zone.top
+            expired = bar_index - zone.confirmedBar > srMaxAge
+            if broken or expired
+                array.remove(zones, i)
+                breached := breached or broken
+    breached
+
+renderVolumeZones(array<SRVolumeZone> zones, bool support) =>
+    count = math.min(srKeep, array.size(zones))
+    if count > 0
+        for i = 0 to count - 1
+            zone = array.get(zones, array.size(zones) - 1 - i)
+            tint = support ? mintColor : roseColor
+            mid = math.avg(zone.top, zone.bottom)
+            array.push(obDrawBoxes, box.new(zone.confirmedBar, zone.top,
+                 bar_index + srExtend, zone.bottom, xloc=xloc.bar_index, extend=extend.right,
+                 bgcolor=color.new(tint, srTransparency), border_color=color.new(tint, 65),
+                 text=srLabels ? (support ? "Support" : "Resistance") : "",
+                 text_color=color.new(chart.fg_color, 20), text_size=size.tiny,
+                 text_halign=text.align_right, text_valign=text.align_center))
+            if obShowMid
+                midStyle = obMidStyle == "Solid" ? line.style_solid : obMidStyle == "Dashed" ? line.style_dashed : line.style_dotted
+                array.push(obDrawLines, line.new(zone.confirmedBar, mid,
+                     bar_index + srExtend, mid, xloc=xloc.bar_index, extend=extend.right,
+                     color=support ? obSupportMid : obResistanceMid, style=midStyle, width=obMidWidth))
+
+obUpper = ta.highest(high, obLength)
+obLower = ta.lowest(low, obLength)
+obLowestClose = ta.lowest(close, obLength)
+obHighestClose = ta.highest(close, obLength)
+obVolumePivot = ta.pivothigh(volume, obLength, obLength)
+var int obState = 0
+obState := high[obLength] > obUpper ? 0 : low[obLength] < obLower ? 1 : nz(obState[1], 0)
+obTargetSupport = obMitigation == "Close" ? obLowestClose : obLower
+obTargetResistance = obMitigation == "Close" ? obHighestClose : obUpper
+obModeActive = showSR and srMode == "Volume order blocks"
+bool obSupportFormed = false
+bool obResistanceFormed = false
+bool obSupportBroken = false
+bool obResistanceBroken = false
+
+if obModeActive and barstate.isconfirmed
+    obSupportBroken := pruneVolumeZones(obSupports, obTargetSupport, true)
+    obResistanceBroken := pruneVolumeZones(obResistances, obTargetResistance, false)
+    if not na(obVolumePivot) and obVolumePivot > 0 and high[obLength] > low[obLength]
+        if obState == 1 and obTargetSupport >= low[obLength]
+            array.push(obSupports, SRVolumeZone.new(hl2[obLength], low[obLength], bar_index))
+            obSupportFormed := true
+        if obState == 0 and obTargetResistance <= high[obLength]
+            array.push(obResistances, SRVolumeZone.new(high[obLength], hl2[obLength], bar_index))
+            obResistanceFormed := true
+
+if barstate.islast
+    clearBoxes(obDrawBoxes)
+    clearLines(obDrawLines)
+    if obModeActive
+        renderVolumeZones(obSupports, true)
+        renderVolumeZones(obResistances, false)
+
+bosHigh = ta.pivothigh(high, bosLeft, bosRight)
+bosLow = ta.pivotlow(low, bosLeft, bosRight)
+var float structureHigh = na
+var float structureLow = na
+var int structureHighTime = na
+var int structureLowTime = na
+var bool highBroken = false
+var bool lowBroken = false
+
+if barstate.isconfirmed
+    if not na(bosHigh)
+        structureHigh := bosHigh
+        structureHighTime := time[bosRight]
+        highBroken := false
+    if not na(bosLow)
+        structureLow := bosLow
+        structureLowTime := time[bosRight]
+        lowBroken := false
+
+bullBOS = showBOS and barstate.isconfirmed and not highBroken and not na(structureHigh) and close > structureHigh
+bearBOS = showBOS and barstate.isconfirmed and not lowBroken and not na(structureLow) and close < structureLow
+
+if bullBOS
+    highBroken := true
+    if array.size(bosLines) >= bosKeep
+        line.delete(array.shift(bosLines))
+    array.push(bosLines, line.new(structureHighTime, structureHigh, time, structureHigh,
+         xloc=xloc.bar_time, color=color.new(mintColor, 15), style=line.style_dotted))
+    if showTradeMarkers
+        signalLabel(high + labelGap * 2, "Bullish structure break", mintColor, false, "Confirmed close above the pivot.")
+
+if bearBOS
+    lowBroken := true
+    if array.size(bosLines) >= bosKeep
+        line.delete(array.shift(bosLines))
+    array.push(bosLines, line.new(structureLowTime, structureLow, time, structureLow,
+         xloc=xloc.bar_time, color=color.new(roseColor, 15), style=line.style_dotted))
+    if showTradeMarkers
+        signalLabel(low - labelGap * 2, "Bearish structure break", roseColor, true, "Confirmed close below the pivot.")
+
+fibHigh = ta.highest(high, fibLookback)
+fibLow = ta.lowest(low, fibLookback)
+fibHighOffset = -ta.highestbars(high, fibLookback)
+fibLowOffset = -ta.lowestbars(low, fibLookback)
+fibRange = fibHigh - fibLow
+fibUp = fibHighOffset < fibLowOffset and fibRange > 0
+fib618 = fibUp ? fibHigh - fibRange * 0.618 : na
+fib786 = fibUp ? fibHigh - fibRange * 0.786 : na
+fib886 = fibUp ? fibHigh - fibRange * 0.886 : na
+fib1272 = fibUp ? fibLow + fibRange * 1.272 : na
+fib1618 = fibUp ? fibLow + fibRange * 1.618 : na
+fib2000 = fibUp ? fibLow + fibRange * 2.000 : na
+plot(showFibZones ? fib618 : na, "Fib 0.618", color=color.new(peachColor, 25), style=plot.style_linebr)
+plot(showFibZones ? fib786 : na, "Fib 0.786", color=color.new(peachColor, 40), style=plot.style_linebr)
+plot(showFibZones ? fib886 : na, "Fib 0.886", color=color.new(peachColor, 55), style=plot.style_linebr)
+plot(showFibZones ? fib1272 : na, "Fib 1.272", color=color.new(lilacColor, 25), style=plot.style_linebr)
+plot(showFibZones ? fib1618 : na, "Fib 1.618", color=color.new(lilacColor, 40), style=plot.style_linebr)
+plot(showFibZones ? fib2000 : na, "Fib 2.000", color=color.new(lilacColor, 55), style=plot.style_linebr)
+var box fibBuyBox = na
+var box fibSellBox = na
+
+if barstate.islast
+    if not na(fibBuyBox)
+        box.delete(fibBuyBox)
+        fibBuyBox := na
+    if not na(fibSellBox)
+        box.delete(fibSellBox)
+        fibSellBox := na
+    if showFibZones and fibUp
+        fibBuyBox := box.new(bar_index - fibHighOffset, fib618, bar_index + fibForward, fib786,
+             bgcolor=color.new(peachColor, 93), border_color=color.new(peachColor, 75))
+        fibSellBox := box.new(bar_index + 1, fib1618, bar_index + fibForward, fib1272,
+             bgcolor=color.new(lilacColor, 93), border_color=color.new(lilacColor, 75))
+
+type ProfileBar
+    int idx
+    int stamp
+    int finish
+    float hi
+    float lo
+    float closing
+    float vol
+
+var array<ProfileBar> profileBars = array.new<ProfileBar>()
+var int profileHead = 0
+var int profileSeen = 0
+profileCapacity = vpMode == "Visible range" ? vpMaxBars : vpBars
+inVisibleRange = time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time
+includeProfileBar = vpMode == "Visible range" ? inVisibleRange : bar_index >= last_bar_index - vpBars + 1
+
+if showVPVR and includeProfileBar
+    finish = na(time_close) ? time + int(nz(chartSeconds, 60) * 1000) : time_close
+    sample = ProfileBar.new(bar_index, time, finish, high, low, close, volume)
+    if array.size(profileBars) < profileCapacity
+        array.push(profileBars, sample)
+    else
+        array.set(profileBars, profileHead, sample)
+        profileHead := (profileHead + 1) % profileCapacity
+    profileSeen += 1
+
+profileSample(int chronologicalIndex) =>
+    array.get(profileBars, (profileHead + chronologicalIndex) % array.size(profileBars))
+
+string profileStatus = ""
+
+if barstate.islast
+    clearBoxes(vpBoxes)
+    clearLines(vpLines)
+    clearLabels(vpLabels)
+    sampleCount = array.size(profileBars)
+    if showVPVR and sampleCount > 0
+        firstSample = profileSample(0)
+        lastSample = profileSample(sampleCount - 1)
+        leftTime = firstSample.stamp
+        rightTime = sampleCount > 1 ? lastSample.stamp : lastSample.finish
+        profileHigh = firstSample.hi
+        profileLow = firstSample.lo
+        missingBars = 0
+        for i = 0 to sampleCount - 1
+            sample = profileSample(i)
+            profileHigh := math.max(profileHigh, sample.hi)
+            profileLow := math.min(profileLow, sample.lo)
+            missingBars += na(sample.vol) ? 1 : 0
+        priceSpan = math.max(profileHigh - profileLow, syminfo.mintick)
+        rows = math.max(1, int(math.min(vpRows, math.floor(priceSpan / syminfo.mintick))))
+        rowHeight = priceSpan / rows
+        rowVolumes = array.new_float(rows, 0.0)
+        for i = 0 to sampleCount - 1
+            sample = profileSample(i)
+            v = math.max(nz(sample.vol, 0), 0)
+            if v > 0
+                if vpAllocation == "Close only" or sample.hi <= sample.lo
+                    row = int(math.floor((sample.closing - profileLow) / rowHeight))
+                    row := math.max(0, math.min(rows - 1, row))
+                    array.set(rowVolumes, row, array.get(rowVolumes, row) + v)
+                else
+                    firstRow = math.max(0, math.min(rows - 1, int(math.floor((sample.lo - profileLow) / rowHeight))))
+                    lastRow = math.max(0, math.min(rows - 1, int(math.floor((sample.hi - profileLow) / rowHeight))))
+                    for row = firstRow to lastRow
+                        bottom = profileLow + row * rowHeight
+                        overlap = math.max(0.0, math.min(sample.hi, bottom + rowHeight) - math.max(sample.lo, bottom))
+                        share = v * overlap / (sample.hi - sample.lo)
+                        array.set(rowVolumes, row, array.get(rowVolumes, row) + share)
+        totalVolume = array.sum(rowVolumes)
+        maxVolume = array.max(rowVolumes)
+        caption = (useNativeVRVP ? "Approx shelves · " : vpMode == "Visible range" ? "Approx VRVP · " : "Approx fixed VP · ") + str.tostring(sampleCount) + " bars"
+        if vpMode == "Visible range" and profileSeen > sampleCount
+            caption += " / " + str.tostring(profileSeen) + " visible · capped"
+        if missingBars > 0
+            caption += " · " + str.tostring(missingBars) + " missing volume"
+        profileStatus := totalVolume > 0 ? caption : "Profile: no usable volume"
+        requestedWidthBars = math.max(1, int(math.round((sampleCount - 1) * vpWidthPct / 100.0)))
+        futureWidthBudget = math.max(1, 499 - vpRightGapBars)
+        maxWidthBars = math.min(requestedWidthBars, futureWidthBudget)
+        profileLeftBar = lastSample.idx + vpRightGapBars
+        profileRightBar = profileLeftBar + maxWidthBars
+        if totalVolume > 0 and maxVolume > 0
+            pocRow = array.indexof(rowVolumes, maxVolume)
+            pocPrice = profileLow + (pocRow + 0.5) * rowHeight
+            vaLowRow = pocRow
+            vaHighRow = pocRow
+            coveredVolume = array.get(rowVolumes, pocRow)
+            wantedVolume = totalVolume * vpValueArea / 100.0
+            while coveredVolume < wantedVolume and (vaLowRow > 0 or vaHighRow < rows - 1)
+                above = vaHighRow < rows - 1 ? array.get(rowVolumes, vaHighRow + 1) : -1.0
+                below = vaLowRow > 0 ? array.get(rowVolumes, vaLowRow - 1) : -1.0
+                if above > below
+                    vaHighRow += 1
+                    coveredVolume += array.get(rowVolumes, vaHighRow)
+                else
+                    vaLowRow -= 1
+                    coveredVolume += array.get(rowVolumes, vaLowRow)
+            valueLow = profileLow + vaLowRow * rowHeight
+            valueHigh = profileLow + (vaHighRow + 1) * rowHeight
+            if vpShowVA and vpFillVA and not useNativeVRVP
+                array.push(vpBoxes, box.new(profileLeftBar, valueHigh, profileRightBar, valueLow, xloc=xloc.bar_index, extend=extend.none,
+                     bgcolor=color.new(blueColor, 97), border_color=color.new(blueColor, 100)))
+            shelfStarts = array.new_int()
+            shelfEnds = array.new_int()
+            shelfMasses = array.new_float()
+            row = 0
+            threshold = maxVolume * vpShelfThreshold / 100.0
+            while row < rows
+                if array.get(rowVolumes, row) >= threshold
+                    startRow = row
+                    mass = 0.0
+                    while row < rows and array.get(rowVolumes, row) >= threshold
+                        mass += array.get(rowVolumes, row)
+                        row += 1
+                    array.push(shelfStarts, startRow)
+                    array.push(shelfEnds, row - 1)
+                    array.push(shelfMasses, mass)
+                else
+                    row += 1
+            if vpShowShelves and array.size(shelfMasses) > 0
+                shelfCount = math.min(vpShelfKeep, array.size(shelfMasses))
+                for k = 0 to shelfCount - 1
+                    strongest = array.indexof(shelfMasses, array.max(shelfMasses))
+                    bottomRow = array.get(shelfStarts, strongest)
+                    topRow = array.get(shelfEnds, strongest)
+                    bottom = profileLow + bottomRow * rowHeight
+                    top = profileLow + (topRow + 1) * rowHeight
+                    isSupport = top < lastSample.closing
+                    isResistance = bottom > lastSample.closing
+                    shelfColor = isSupport ? mintColor : isResistance ? roseColor : lilacColor
+                    shelfText = isSupport ? "Approx shelf · support" : isResistance ? "Approx shelf · resistance" : "Approx volume shelf"
+                    array.push(vpBoxes, box.new(leftTime, top, rightTime, bottom, xloc=xloc.bar_time, extend=extend.right,
+                         bgcolor=color.new(shelfColor, vpShelfTransparency), border_color=color.new(shelfColor, 78),
+                         text=vpShowLabels ? shelfText : "", text_size=size.tiny,
+                         text_color=color.new(chart.fg_color, 25), text_halign=text.align_left))
+                    array.set(shelfMasses, strongest, -1.0)
+            if vpShowPOC and not useNativeVRVP
+                array.push(vpBoxes, box.new(profileLeftBar, profileLow + (pocRow + 1) * rowHeight,
+                     profileRightBar, profileLow + pocRow * rowHeight, xloc=xloc.bar_index, extend=extend.none,
+                     bgcolor=color.new(lilacColor, 90), border_color=color.new(lilacColor, 100)))
+            if not useNativeVRVP
+                for r = 0 to rows - 1
+                    v = array.get(rowVolumes, r)
+                    if v > 0
+                        fraction = v / maxVolume
+                        widthBars = math.max(1, int(math.round(maxWidthBars * fraction)))
+                        rowLeftBar = profileRightBar - widthBars
+                        bottom = profileLow + r * rowHeight
+                        inVA = r >= vaLowRow and r <= vaHighRow
+                        tint = r == pocRow ? lilacColor : inVA ? blueColor : color.rgb(192, 201, 214)
+                        transparency = inVA or r == pocRow ? vpTransparency : math.min(95, vpTransparency + 20)
+                        array.push(vpBoxes, box.new(rowLeftBar, bottom + rowHeight * 0.94,
+                             profileRightBar, bottom + rowHeight * 0.06, xloc=xloc.bar_index,
+                             bgcolor=color.new(tint, transparency), border_color=color.new(tint, 100)))
+            if vpShowVA and not useNativeVRVP
+                profileLevel(profileLeftBar, profileRightBar, valueHigh, "Value area high", blueColor, true)
+                profileLevel(profileLeftBar, profileRightBar, valueLow, "Value area low", blueColor, true)
+            if vpShowPOC and not useNativeVRVP
+                profileLevel(profileLeftBar, profileRightBar, pocPrice, "POC", lilacColor, false)
+        if vpShowLabels and (not useNativeVRVP or vpShowShelves)
+            if not useNativeVRVP and totalVolume > 0 and maxVolume > 0
+                array.push(vpLabels, label.new(profileLeftBar, profileHigh + priceSpan * 0.025, profileStatus,
+                     xloc=xloc.bar_index, style=label.style_label_left,
+                     color=color.new(chart.bg_color, 100), textcolor=color.new(chart.fg_color, 20), size=size.tiny,
+                     tooltip="Custom OHLCV approximation. The full custom VPVR is drawn in blank space to the right of the profiled candles; Pine cannot pixel-dock drawings to the viewport edge."))
+            else
+                array.push(vpLabels, label.new(leftTime, profileHigh + priceSpan * 0.025, profileStatus,
+                     xloc=xloc.bar_time, style=label.style_label_left,
+                     color=color.new(chart.bg_color, 100), textcolor=color.new(chart.fg_color, 20), size=size.tiny,
+                     tooltip="Custom OHLCV approximation, not read from the native VRVP. Changing the selected range changes these descriptive shelf areas. Extended areas are not forecasts or historical signals."))
+
+requestedProfiles = sessionVpScope == "Last candle" ? 1 : sessionVpCount
+objectsPerRow = sessionVpDisplay == "Up/Down split" ? 2 : 1
+maxCandleProfiles = math.max(1, int(math.floor(CANDLE_BOX_BUDGET / (sessionVpRows * objectsPerRow))))
+allowedProfiles = math.min(requestedProfiles, maxCandleProfiles)
+lowerSeconds = timeframe.in_seconds(sessionVpTf)
+lowerTfValid = not na(chartSeconds) and not na(lowerSeconds) and lowerSeconds < chartSeconds
+estimatedIntrabars = lowerTfValid ? math.max(1, int(math.ceil(chartSeconds / lowerSeconds))) : 1
+candleCalcBars = showSessionVP and lowerTfValid ? math.min(100000, (allowedProfiles + 2) * estimatedIntrabars) : 1
+[sessionPrices, sessionVolumes, sessionUp] = request.security_lower_tf(syminfo.tickerid, sessionVpTf,
+     [sessionVpSource == "Close" ? close : hlc3, volume, close >= open],
+     ignore_invalid_timeframe=true, calc_bars_count=candleCalcBars)
+
+drawCandleProfiles() =>
+    int drawn = 0
+    if barstate.islast
+        clearBoxes(candleBoxes)
+        clearLines(candleLines)
+        if showSessionVP and lowerTfValid
+            oldestOffset = math.min(allowedProfiles - 1, bar_index)
+            for offset = oldestOffset to 0
+                prices = sessionPrices[offset]
+                volumes = sessionVolumes[offset]
+                upFlags = sessionUp[offset]
+                arraysReady = not na(prices) and not na(volumes) and not na(upFlags)
+                lowerCount = arraysReady ? math.min(array.size(prices), math.min(array.size(volumes), array.size(upFlags))) : 0
+                if lowerCount > 0 and not na(time_close[offset])
+                    candleLow = low[offset]
+                    candleRange = math.max(high[offset] - candleLow, syminfo.mintick)
+                    rowSize = candleRange / sessionVpRows
+                    ups = array.new_float(sessionVpRows, 0.0)
+                    downs = array.new_float(sessionVpRows, 0.0)
+                    for i = 0 to lowerCount - 1
+                        price = array.get(prices, i)
+                        v = math.max(nz(array.get(volumes, i), 0), 0)
+                        if not na(price) and v > 0
+                            row = math.max(0, math.min(sessionVpRows - 1, int(math.floor((price - candleLow) / rowSize))))
+                            if array.get(upFlags, i)
+                                array.set(ups, row, array.get(ups, row) + v)
+                            else
+                                array.set(downs, row, array.get(downs, row) + v)
+                    peak = 0.0
+                    pocRow = 0
+                    for row = 0 to sessionVpRows - 1
+                        v = array.get(ups, row) + array.get(downs, row)
+                        if v > peak
+                            peak := v
+                            pocRow := row
+                    if peak > 0
+                        drawn += 1
+                        start = time[offset]
+                        finish = time_close[offset]
+                        maxWidth = math.max(1, int((finish - start) * sessionVpWidth / 100.0))
+                        alignLeft = sessionVpAlignment == "Left"
+                        for row = 0 to sessionVpRows - 1
+                            upV = array.get(ups, row)
+                            downV = array.get(downs, row)
+                            total = upV + downV
+                            if total > 0
+                                bottom = candleLow + row * rowSize
+                                top = bottom + rowSize * 0.94
+                                width = math.max(1, int(maxWidth * total / peak))
+                                left = alignLeft ? start : finish - width
+                                right = alignLeft ? start + width : finish
+                                if sessionVpDisplay == "Up/Down split"
+                                    upWidth = int(width * upV / total)
+                                    downWidth = width - upWidth
+                                    if upWidth > 0
+                                        upLeft = alignLeft ? left : right - upWidth
+                                        upRight = alignLeft ? left + upWidth : right
+                                        array.push(candleBoxes, box.new(upLeft, top, upRight, bottom, xloc=xloc.bar_time,
+                                             bgcolor=color.new(blueColor, sessionVpTransparency), border_color=color.new(blueColor, 100)))
+                                    if downWidth > 0
+                                        downLeft = alignLeft ? left + upWidth : left
+                                        downRight = alignLeft ? right : right - upWidth
+                                        array.push(candleBoxes, box.new(downLeft, top, downRight, bottom, xloc=xloc.bar_time,
+                                             bgcolor=color.new(peachColor, sessionVpTransparency), border_color=color.new(peachColor, 100)))
+                                else
+                                    imbalance = (upV - downV) / total
+                                    tint = color.from_gradient(imbalance, -1.0, 1.0, peachColor, blueColor)
+                                    array.push(candleBoxes, box.new(left, top, right, bottom, xloc=xloc.bar_time,
+                                         bgcolor=color.new(tint, sessionVpTransparency), border_color=color.new(tint, 100)))
+                        if sessionVpShowPoc
+                            price = candleLow + (pocRow + 0.5) * rowSize
+                            left = alignLeft ? start : finish - maxWidth
+                            right = alignLeft ? start + maxWidth : finish
+                            array.push(candleLines, line.new(left, price, right, price,
+                                 xloc=xloc.bar_time, color=lilacColor, width=1))
+    drawn
+
+candleProfilesDrawn = drawCandleProfiles()
+
+setupDataReady = not na(baseHigh) and not na(priorLow) and not na(smaTrend[10]) and not na(rsi) and not na(macdHist) and (not requireHTF or weeklyReady)
+coreReady = setupDataReady and trendOk and structureOk and notChasing and score >= minScore
+stateText = targetExit ? "TARGET" : stopExit ? "STOP" : buySignal ? "BUY" : inTrade ? "MANAGE" : coreReady ? "WATCH" : "WAIT"
+stateColor = stopExit ? roseColor : targetExit ? lilacColor : buySignal or inTrade ? mintColor : coreReady ? peachColor : blueColor
+actionText = requireHTF and not weeklyFilterUsable ? "Weekly filter: chart must be 1W or lower" : not setupDataReady ? "Loading required history" : targetExit ? "Target touched" : stopExit ? "Stop touched" : buySignal ? (breakoutSetup ? "Breakout confirmed" : "Pullback confirmed") : inTrade ? "Stop " + str.tostring(stopPrice, format.mintick) + " · Target " + str.tostring(targetPrice, format.mintick) : not trendOk ? "Wait for trend alignment" : not leaderOk ? "Wait for leader move" : not baseOk ? "Base too deep" : not notChasing ? "Too far above slow EMA" : score < minScore ? "Score below minimum" : pivotBreak and not strongClose ? "Breakout needs a stronger close" : pivotBreak and not breakoutVolumeOk ? "Breakout volume too low" : pullback and not pullbackVolumeOk ? "Pullback volume too high" : "Watch " + str.tostring(baseHigh, format.mintick) + " or fast EMA"
+var table guide = table.new(guidePosition, 2, 12,
+     bgcolor=color.new(chart.bg_color, 100), frame_width=0, border_width=0)
+
+guideRow(int row, string key, string value, bool ok) =>
+    table.cell(guide, 0, row, key, text_color=color.new(chart.fg_color, 25), text_size=size.tiny,
+         text_halign=text.align_left, bgcolor=color.new(chart.bg_color, 8))
+    table.cell(guide, 1, row, value, text_color=chart.fg_color, text_size=size.tiny,
+         text_halign=text.align_left, bgcolor=color.new(ok ? mintColor : roseColor, 92))
+
+if barstate.islast
+    table.clear(guide, 0, 0, 1, 11)
+    if guideMode != "Off"
+        table.cell(guide, 0, 0, stateText, text_size=size.tiny, text_color=color.rgb(46, 51, 60),
+             bgcolor=color.new(stateColor, 12), text_halign=text.align_left)
+        table.cell(guide, 1, 0, actionText, text_size=size.tiny, text_color=chart.fg_color,
+             bgcolor=color.new(chart.bg_color, 8), text_halign=text.align_left)
+        if guideMode == "Checklist"
+            guideRow(1, "Trend", trendOk ? "Aligned" : "Not aligned", trendOk)
+            guideRow(2, "Leader", str.tostring(leaderMovePct, "0.0") + "%", leaderOk)
+            guideRow(3, "Base depth", str.tostring(baseDepthPct, "0.0") + "%", baseOk)
+            guideRow(4, "Extension", str.tostring(extensionPct, "0.0") + "%", notChasing)
+            guideRow(5, "Score", str.tostring(score) + "/7 · need " + str.tostring(minScore), score >= minScore)
+            guideRow(6, "Trigger", pivotBreak ? "Breakout" : pullback ? "Pullback" : "None", pivotBreak or pullback)
+            guideRow(7, "Volume", hasVolume ? str.tostring(volumeRatio, "0.00") + "×" : "Unavailable · filter bypassed",
+                 hasVolume and (pivotBreak ? breakoutVolumeOk : pullback ? pullbackVolumeOk : true))
+            guideRow(8, useNativeVRVP ? "Own shelves" : "Profile", showVPVR ? profileStatus : "Off", showVPVR)
+        if showSessionVP
+            candleMessage = not lowerTfValid ? "Choose a lower timeframe" :
+                 str.tostring(candleProfilesDrawn) + "/" + str.tostring(requestedProfiles) + " shown · cap " + str.tostring(allowedProfiles)
+            guideRow(guideMode == "Checklist" ? 9 : 1, "Candle profiles", candleMessage,
+                 lowerTfValid and candleProfilesDrawn == requestedProfiles)
+
+alertcondition(buySignal, "SLB Buy", "SLB buy setup on {{ticker}} {{interval}}")
+alertcondition(buySignal and breakoutSetup, "SLB Breakout", "SLB breakout confirmed on {{ticker}} {{interval}}")
+alertcondition(buySignal and not breakoutSetup and pullbackSetup, "SLB Pullback", "SLB pullback confirmed on {{ticker}} {{interval}}")
+alertcondition(stopExit, "SLB Stop", "SLB stop level touched on {{ticker}} {{interval}}")
+alertcondition(targetExit, "SLB Target", "SLB configured R target touched on {{ticker}} {{interval}}")
+alertcondition(bullBOS, "SLB Bullish BOS", "SLB bullish structure break confirmed on {{ticker}} {{interval}}")
+alertcondition(bearBOS, "SLB Bearish BOS", "SLB bearish structure break confirmed on {{ticker}} {{interval}}")
+alertcondition(obSupportFormed, "SLB Support Formed", "Volume-based support confirmed on {{ticker}} {{interval}}")
+alertcondition(obResistanceFormed, "SLB Resistance Formed", "Volume-based resistance confirmed on {{ticker}} {{interval}}")
+alertcondition(obSupportBroken, "SLB Support Broken", "Volume-based support invalidated on {{ticker}} {{interval}}")
+alertcondition(obResistanceBroken, "SLB Resistance Broken", "Volume-based resistance invalidated on {{ticker}} {{interval}}")
+
+const string G_BIAS = "9 · Market Bias"
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Professeur_X
+
+mb_forceCtf(simple string mb_str_tf) =>
+    mb_i_tf_sec = timeframe.in_seconds(mb_str_tf)
+    mb_ctf_sec = timeframe.in_seconds('')
+    mb_i_tf_sec < mb_ctf_sec ? '' : mb_str_tf
+
+mb_ha_htf = mb_forceCtf(input.timeframe('', 'Timeframe', tooltip="This timeframe must be equal to or greater than the chart's timeframe", group=G_BIAS))
+mb_ha_len = input.int(100, 'Period', minval=1, group=G_BIAS)
+mb_ha_len2 = input.int(100, 'Smoothing', minval=1, group=G_BIAS)
+mb_show_ha = input.bool(true, "Show HA Candles", inline='ha/mb display', group=G_BIAS)
+mb_show_mb = input.bool(true, "Show Market Bias", inline='ha/mb display', group=G_BIAS)
+mb_col_bull = input.color(color.lime, 'Color: Bullish', inline='bull/bear color', group=G_BIAS, display=display.none)
+mb_col_bear = input.color(color.red, 'Bearish', inline='bull/bear color', group=G_BIAS, display=display.none)
+mb_transparencyBoost = input.int(30, "Extra transparency (%)", minval=0, maxval=100, group=G_BIAS,
+     tooltip="Adds percentage points to the original Market Bias transparency, capped at 100. Default +30: strong fill 35 to 65, weak fill 75 to 100, HA candle bodies 0 to 30. Set 0 for the original appearance.")
+
+mb_strongTransparency = math.min(100, 35 + mb_transparencyBoost)
+mb_weakTransparency = math.min(100, 75 + mb_transparencyBoost)
+mb_indexHighTF = timeframe.in_seconds(mb_ha_htf) == timeframe.in_seconds('') ? 0 : barstate.isrealtime ? 1 : 0
+mb_indexCurrTF = timeframe.in_seconds(mb_ha_htf) == timeframe.in_seconds('') ? 0 : barstate.isrealtime ? 0 : 1
+
+mb_request(simple string mb_resolution, series float mb_expression) =>
+     request.security(syminfo.tickerid, mb_resolution, mb_expression[mb_indexHighTF])[mb_indexCurrTF]
+
+mb_o = ta.ema(open, mb_ha_len)
+mb_c = ta.ema(close, mb_ha_len)
+mb_h = ta.ema(high, mb_ha_len)
+mb_l = ta.ema(low, mb_ha_len)
+mb_haclose = mb_request(mb_ha_htf, (mb_o + mb_h + mb_l + mb_c) / 4)
+mb_xhaopen = mb_request(mb_ha_htf, (mb_o + mb_c) / 2)
+mb_haopen = na(mb_xhaopen[1]) ? (mb_o + mb_c) / 2 : (mb_xhaopen[1] + mb_haclose[1]) / 2
+mb_hahigh = math.max(mb_h, math.max(mb_haopen, mb_haclose))
+mb_halow = math.min(mb_l, math.min(mb_haopen, mb_haclose))
+mb_o2 = mb_request(mb_ha_htf, ta.ema(mb_haopen, mb_ha_len2))
+mb_c2 = mb_request(mb_ha_htf, ta.ema(mb_haclose, mb_ha_len2))
+mb_h2 = mb_request(mb_ha_htf, ta.ema(mb_hahigh, mb_ha_len2))
+mb_l2 = mb_request(mb_ha_htf, ta.ema(mb_halow, mb_ha_len2))
+mb_ha_avg = (mb_h2 + mb_l2) / 2
+mb_osc_len = input.int(7, "Oscillator Period", minval=1, group=G_BIAS)
+mb_osc_bias = 100 * (mb_c2 - mb_o2)
+mb_osc_smooth = ta.ema(mb_osc_bias, mb_osc_len)
+mb_sigcolor = switch
+    (mb_osc_bias > 0) and (mb_osc_bias >= mb_osc_smooth) => color.new(mb_col_bull, mb_strongTransparency)
+    (mb_osc_bias > 0) and (mb_osc_bias < mb_osc_smooth) => color.new(mb_col_bull, mb_weakTransparency)
+    (mb_osc_bias < 0) and (mb_osc_bias <= mb_osc_smooth) => color.new(mb_col_bear, mb_strongTransparency)
+    (mb_osc_bias < 0) and (mb_osc_bias > mb_osc_smooth) => color.new(mb_col_bear, mb_weakTransparency)
+    => color(na)
+
+mb_p_h = plot(mb_h2, "Bias High", color=color(na), display=display.data_window, editable=false)
+mb_p_l = plot(mb_l2, "Bias Low", color=color(na), display=display.data_window, editable=false)
+mb_p_avg = plot(mb_ha_avg, "Bias Average", color=color(na), display=display.data_window, editable=false)
+fill(mb_p_l, mb_p_h, mb_show_mb ? mb_sigcolor : na)
+mb_baseCandleColor = mb_o2 > mb_c2 ? mb_col_bear : mb_col_bull
+mb_col = color.new(mb_baseCandleColor, math.min(100, color.t(mb_baseCandleColor) + mb_transparencyBoost))
+plotcandle(mb_o2, mb_h2, mb_l2, mb_c2, title='heikin smoothed', color=mb_col, wickcolor=mb_col, bordercolor=mb_col,
+     display=mb_show_ha ? display.pane : display.data_window, editable=false)
+
+mb_biasSignChange = ta.change(math.sign(mb_osc_bias))
+mb_strengthSignChange = ta.change(math.sign(mb_osc_bias - mb_osc_smooth))
+alertcondition(ta.change(mb_biasSignChange > 0),
+  'Bullish Trend Switch (Bearish -> Bullish)', '{{exchange}}:{{ticker}}: Trend is now Bullish.')
+
+alertcondition(mb_osc_bias > 0 and mb_strengthSignChange > 0,
+  'Bullish Trend Strengthens', '{{exchange}}:{{ticker}}: Bullish Trend is now Stronger.')
+
+alertcondition(mb_osc_bias > 0 and mb_strengthSignChange < 0,
+  'Bullish Trend Weakens', '{{exchange}}:{{ticker}}: Bullish Trend is now Weaker.')
+
+alertcondition(ta.change(mb_biasSignChange < 0),
+  'Bearish Trend Switch (Bullish -> Bearish)', '{{exchange}}:{{ticker}}: Trend is now Bearish.')
+
+alertcondition(mb_osc_bias < 0 and mb_strengthSignChange < 0,
+  'Bearish Trend Strengthens', '{{exchange}}:{{ticker}}: Bearish Trend is now Stronger.')
+
+alertcondition(mb_osc_bias < 0 and mb_strengthSignChange > 0,
+  'Bearish Trend Weakens', '{{exchange}}:{{ticker}}: Bearish Trend is now Weaker.')
