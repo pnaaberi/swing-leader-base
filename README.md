@@ -49,6 +49,10 @@ Run `python3 -B tools/recover_swatch.py /path/to/private-config.json`. The JSON 
 
 Version 0.2.1 aligns the readable reference settings and supplies calibrated visual color matches. Source and image-recovery checks pass; TradingView compilation and chart rendering of this revision have not been verified.
 
+## Repository protection
+
+`main` blocks force pushes and branch deletion, including for administrators. The repository remains public. Normal authorized fast-forward pushes remain allowed; pull-request reviews and required CI checks have not been added. Administrators can still manage protection settings, and public source can still be read or forked.
+
 ## Attribution and licenses
 
 - Volume order-block logic: adapted from © LuxAlgo, [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), including its noncommercial and share-alike conditions.

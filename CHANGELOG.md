@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Security: protect `main` from force pushes and deletion, including administrators, while retaining public visibility and normal fast-forward pushes.
+
 ## 0.2.1
 
 - Set Market Bias defaults to Period 7, Smoothing 20, HA candles off and extra transparency 0.
