@@ -4,9 +4,17 @@ TradingView Pine Script v6 overlay combining swing setups, a custom volume profi
 
 ## Use
 
-Open `swing-leader-base.pine` in TradingView's Pine Editor, save it and select **Add to chart**. Settings are grouped by feature.
+Open `swing-leader-base.pine` in TradingView's Pine Editor, save it and select **Add to chart**. The first Inputs section, **0 · Indicators**, has the module switches; detailed settings remain grouped below.
 
 This is an indicator, not a trading strategy or order-execution system. Profile volumes are approximated from chart OHLCV. Native TradingView VRVP is a separate optional companion. Market Bias is independent of the setup conditions. Not financial advice.
+
+## Top module switches
+
+Nine checkboxes cover SLB signals/levels/guide, moving averages, the custom volume profile/shelves, support/resistance, Fibonacci zones, structure breaks, candle profiles, Market Bias and Bollinger Bands. Fibonacci, structure breaks and candle profiles remain off by default; existing numeric, color and timeframe defaults are unchanged.
+
+The SLB master also gates its bar tint and alert conditions; moving-average display is independent. The Market Bias master hides its ribbon, optional HA candles and data-window values, and gates its six alert conditions. Other module switches retain their original behavior. The custom-profile switch cannot control a separate native TradingView VRVP.
+
+After upgrading from 0.2.x, use a fresh instance or reset inputs to source defaults, then reapply personal overrides: input controls have moved. Existing TradingView alerts retain their own settings snapshot; disable/recreate them separately after changing module switches.
 
 ## Market Bias defaults
 
@@ -25,7 +33,7 @@ Existing TradingView chart instances and saved templates can retain prior input 
 
 ## Bollinger Bands
 
-Enabled by default under **10 · Bollinger Bands**. Uses a 20-period simple moving average of close, with outer bands at ±2 standard deviations. Length, multiplier and source are adjustable; the visibility toggle hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
+Enabled by default in **0 · Indicators**, with length, multiplier and source settings under **10 · Bollinger Bands**. Uses a 20-period simple moving average of close, with outer bands at ±2 standard deviations. The top switch hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
 
 | Shared style token | Default | Usage |
 | --- | --- | --- |
@@ -34,6 +42,8 @@ Enabled by default under **10 · Bollinger Bands**. Uses a 20-period simple movi
 | `BB_FILL_COLOR` | `#EEEEEE` | Near-white light-gray fill between outer bands |
 
 Fixed black styling is intended for a light chart background. Bollinger Bands are an independent overlay: they do not change setup signals, alerts or risk levels.
+
+The Bollinger drawing block runs before Market Bias. Its light-gray fill is below the Market Bias ribbon, while native fill/plot z-groups keep the thin Bollinger outlines crisp. No global plot-z-order override is used.
 
 ## Checks
 
@@ -47,7 +57,7 @@ Run `python3 -B tools/recover_swatch.py /path/to/private-config.json`. The JSON 
 
 ## Status
 
-Version 0.2.1 aligns the readable reference settings and supplies calibrated visual color matches. Source and image-recovery checks pass; TradingView compilation and chart rendering of this revision have not been verified.
+Version 0.3.0 adds top module controls and draws the Market Bias ribbon above the Bollinger fill. Source-contract checks pass; native TradingView compilation, control layout and actual chart rendering remain unverified.
 
 ## Repository protection
 

@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
+- Add a first Inputs section with nine module checkboxes; relocate existing switches without changing their defaults.
+- Add SLB and Market Bias master gates for output and this configuration's alert conditions; preserve independent moving averages and existing module behavior.
+- Draw Bollinger before Market Bias so the ribbon stays above the gray band fill, retaining native plot/fill z-groups and the original three black lines.
+- Document input reset/fresh-instance migration and TradingView alert snapshots; add focused control/off/layer-order regressions.
 - Security: protect `main` from force pushes and deletion, including administrators, while retaining public visibility and normal fast-forward pushes.
 
 ## 0.2.1

@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "swing-leader-base.pine").read_text()
-BANDS = SOURCE.split('\nconst string G_BB = "10 · Bollinger Bands"', 1)[1]
+BANDS = SOURCE.split('\nconst string G_BB = "10 · Bollinger Bands"', 1)[1].split('\nmb_o = ', 1)[0]
 PLOTS = re.findall(r"(?m)^(?:bb\w+ = )?plot\((.+)$", BANDS)
 
 
@@ -15,7 +15,7 @@ class BollingerContractTests(unittest.TestCase):
             "[bbBasis, bbUpper, bbLower] = ta.bb(bbSource, bbLength, bbMultiplier)",
             BANDS,
         )
-        self.assertIn('input.bool(true, "Show Bollinger Bands", group=G_BB)', BANDS)
+        self.assertIn('showBB = input.bool(true, "Bollinger Bands", group=G_CONTROLS', SOURCE)
         self.assertIn('input.int(20, "Length", minval=2, maxval=500', BANDS)
         self.assertIn(
             'input.float(2.0, "Standard deviations", minval=0.1, maxval=10.0',

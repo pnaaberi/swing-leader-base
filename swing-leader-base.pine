@@ -3,6 +3,20 @@
 indicator("Swing Leader Base · VPVR + Order Block S/R + Market Bias", "SLB + MB", overlay=true, dynamic_requests=false,
      max_boxes_count=500, max_lines_count=100, max_labels_count=500, max_bars_back=2000)
 
+const string G_CONTROLS = "0 · Indicators"
+showSLB = input.bool(true, "SLB signals / levels", group=G_CONTROLS, inline="module1",
+     tooltip="Signals, stop/target levels, guide, bar tint and SLB alert conditions. Moving averages are independent.")
+showMAs = input.bool(true, "Moving averages", group=G_CONTROLS, inline="module1")
+showVPVR = input.bool(true, "Volume profile", group=G_CONTROLS, inline="module2",
+     tooltip="This script's custom profile and shelves only. A separate native TradingView VRVP is not controlled here.")
+showSR = input.bool(true, "Support / resistance", group=G_CONTROLS, inline="module2")
+showFibZones = input.bool(false, "Fibonacci zones", group=G_CONTROLS, inline="module3")
+showBOS = input.bool(false, "Structure breaks", group=G_CONTROLS, inline="module3")
+showSessionVP = input.bool(false, "Candle profiles", group=G_CONTROLS, inline="module4")
+mb_enabled = input.bool(true, "Market Bias", group=G_CONTROLS, inline="module4",
+     tooltip="Bias ribbon, optional smoothed HA candles, data-window values and Market Bias alert conditions.")
+showBB = input.bool(true, "Bollinger Bands", group=G_CONTROLS, inline="module5")
+
 const string G_SETUP = "1 · Setup rules"
 const string G_VOL = "2 · Volume rules"
 const string G_RISK = "3 · Risk levels"
@@ -35,7 +49,6 @@ markerFontSize = input.int(1, "Signal font size", minval=1, maxval=12, group=G_S
 
 markerKeep = input.int(250, "Signal labels to retain", minval=20, maxval=350, group=G_STYLE)
 markerGap = input.float(0.22, "Signal spacing × ATR", minval=0.05, maxval=2.0, step=0.05, group=G_STYLE)
-showMAs = input.bool(true, "Moving averages", group=G_STYLE)
 showRibbon = input.bool(false, "Very faint EMA ribbon", group=G_STYLE)
 showLevels = input.bool(true, "Active stop / target", group=G_STYLE)
 showBarTint = input.bool(false, "Very faint bar tint", group=G_STYLE)
@@ -50,9 +63,6 @@ lilacColor = input.color(color.rgb(205, 184, 230), "Target / POC", group=G_STYLE
 peachColor = input.color(color.rgb(236, 208, 174), "Slow EMA / Fibonacci", group=G_STYLE)
 useNativeVRVP = input.bool(false, "Use native TradingView VRVP instead of custom", group=G_VP,
      tooltip="Off = draw this script's full custom VPVR in the blank area to the right of the visible candles. On = hide the custom histogram/POC/VA and use TradingView's native Visible Range Volume Profile separately.")
-
-showVPVR = input.bool(true, "Calculate custom profile / volume shelves", group=G_VP,
-     tooltip="Enables this script's own profile calculations and shelf areas. In companion mode, the external native VRVP supplies the histogram and POC/VA levels.")
 
 vpMode = input.string("Visible range", "Range", options=["Visible range", "Last N bars"], group=G_VP)
 vpBars = input.int(250, "N bars", minval=30, maxval=1500, group=G_VP)
@@ -80,7 +90,6 @@ vpShelfThreshold = input.float(65.0, "Shelf row volume ≥ % of POC", minval=25,
 vpShelfKeep = input.int(3, "Strongest shelves to show", minval=1, maxval=8, group=G_VP)
 vpShelfTransparency = input.int(92, "Shelf transparency", minval=75, maxval=98, group=G_VP)
 vpShowLabels = input.bool(true, "Profile labels and range caption", group=G_VP)
-showSR = input.bool(true, "Support / resistance areas", group=G_SR)
 srMode = input.string("Volume order blocks", "Zone source",
      options=["Volume order blocks", "Price pivots (original)"], group=G_SR,
      tooltip="Volume mode uses LuxAlgo's volume-pivot/state and half-candle boundaries. Price mode keeps the original pivot/ATR logic. Neither method is proven superior by this indicator.")
@@ -108,14 +117,11 @@ srTransparency = input.int(92, "Zone transparency", minval=75, maxval=98, group=
 srLabels = input.bool(true, "Write Support / Resistance", group=G_SR,
      tooltip="Both modes start zones at confirmation. Original pivots invalidate on a closing-price break; order blocks use the selected Close/Wick method. Fill colors use Breakout / support and Stop / resistance in Minimal display.")
 
-showFibZones = input.bool(false, "Fibonacci zones", group=G_EXTRA)
 fibLookback = input.int(80, "Fib bars", minval=20, maxval=300, group=G_EXTRA)
 fibForward = input.int(20, "Fib forward bars", minval=1, maxval=100, group=G_EXTRA)
-showBOS = input.bool(false, "Confirmed break of structure", group=G_EXTRA)
 bosLeft = input.int(5, "BOS pivot left", minval=2, maxval=20, group=G_EXTRA, inline="bos")
 bosRight = input.int(5, "right", minval=2, maxval=20, group=G_EXTRA, inline="bos")
 bosKeep = input.int(8, "BOS lines to retain", minval=1, maxval=20, group=G_EXTRA)
-showSessionVP = input.bool(false, "Show intrabar candle profiles", group=G_CANDLE)
 sessionVpScope = input.string("Last candle", "Scope", options=["Last candle", "Recent candles"], group=G_CANDLE)
 sessionVpCount = input.int(10, "Requested recent candles", minval=1, maxval=40, group=G_CANDLE)
 sessionVpRows = input.int(24, "Rows per candle", minval=8, maxval=40, group=G_CANDLE)
@@ -223,11 +229,11 @@ var int entryBar = na
 var float entryPrice = na
 var float stopPrice = na
 var float targetPrice = na
-buySignal = barstate.isconfirmed and not inTrade and (breakoutSetup or pullbackSetup)
+buySignal = showSLB and barstate.isconfirmed and not inTrade and (breakoutSetup or pullbackSetup)
 stopHit = inTrade and not na(stopPrice) and low <= stopPrice
 targetHit = inTrade and not stopHit and not na(targetPrice) and high >= targetPrice
-stopExit = barstate.isconfirmed and stopHit
-targetExit = barstate.isconfirmed and targetHit
+stopExit = showSLB and barstate.isconfirmed and stopHit
+targetExit = showSLB and barstate.isconfirmed and targetHit
 exitStopLevel = stopPrice
 exitTargetLevel = targetPrice
 
@@ -264,9 +270,9 @@ fastPlot = plot(showMAs ? emaFast : na, "Fast EMA", color=color.new(mintColor, 1
 slowPlot = plot(showMAs ? emaSlow : na, "Slow EMA", color=color.new(peachColor, 15))
 plot(showMAs ? smaTrend : na, "Trend SMA", color=color.new(chart.fg_color, 60), linewidth=1)
 fill(fastPlot, slowPlot, color=showMAs and showRibbon ? color.new(emaFast >= emaSlow ? mintColor : roseColor, 94) : na)
-plot(showLevels and inTrade ? stopPrice : na, "Active stop", color=roseColor, linewidth=1, style=plot.style_linebr)
-plot(showLevels and inTrade ? targetPrice : na, "Active target", color=lilacColor, linewidth=1, style=plot.style_linebr)
-barcolor(showBarTint ? inTrade ? color.new(mintColor, 65) : trendOk ? color.new(mintColor, 80) : na : na)
+plot(showSLB and showLevels and inTrade ? stopPrice : na, "Active stop", color=roseColor, linewidth=1, style=plot.style_linebr)
+plot(showSLB and showLevels and inTrade ? targetPrice : na, "Active target", color=lilacColor, linewidth=1, style=plot.style_linebr)
+barcolor(showSLB and showBarTint ? inTrade ? color.new(mintColor, 65) : trendOk ? color.new(mintColor, 80) : na : na)
 
 maintainZones(array<box> zones, bool support) =>
     if array.size(zones) > 0
@@ -743,7 +749,7 @@ guideRow(int row, string key, string value, bool ok) =>
 
 if barstate.islast
     table.clear(guide, 0, 0, 1, 11)
-    if guideMode != "Off"
+    if showSLB and guideMode != "Off"
         table.cell(guide, 0, 0, stateText, text_size=size.tiny, text_color=color.rgb(46, 51, 60),
              bgcolor=color.new(stateColor, 12), text_halign=text.align_left)
         table.cell(guide, 1, 0, actionText, text_size=size.tiny, text_color=chart.fg_color,
@@ -803,6 +809,21 @@ mb_indexCurrTF = timeframe.in_seconds(mb_ha_htf) == timeframe.in_seconds('') ? 0
 mb_request(simple string mb_resolution, series float mb_expression) =>
      request.security(syminfo.tickerid, mb_resolution, mb_expression[mb_indexHighTF])[mb_indexCurrTF]
 
+const string G_BB = "10 · Bollinger Bands"
+const color BB_LINE_COLOR = #000000
+const color BB_FILL_COLOR = #EEEEEE
+const int BB_LINE_WIDTH = 1
+
+bbLength = input.int(20, "Length", minval=2, maxval=500, group=G_BB)
+bbMultiplier = input.float(2.0, "Standard deviations", minval=0.1, maxval=10.0, step=0.1, group=G_BB)
+bbSource = input.source(close, "Source", group=G_BB)
+
+[bbBasis, bbUpper, bbLower] = ta.bb(bbSource, bbLength, bbMultiplier)
+bbUpperPlot = plot(showBB ? bbUpper : na, "Bollinger upper", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
+plot(showBB ? bbBasis : na, "Bollinger basis", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
+bbLowerPlot = plot(showBB ? bbLower : na, "Bollinger lower", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
+fill(bbUpperPlot, bbLowerPlot, color=showBB ? BB_FILL_COLOR : na, title="Bollinger fill", fillgaps=false)
+
 mb_o = ta.ema(open, mb_ha_len)
 mb_c = ta.ema(close, mb_ha_len)
 mb_h = ta.ema(high, mb_ha_len)
@@ -827,47 +848,33 @@ mb_sigcolor = switch
     (mb_osc_bias < 0) and (mb_osc_bias > mb_osc_smooth) => color.new(mb_col_bear, mb_weakTransparency)
     => color(na)
 
-mb_p_h = plot(mb_h2, "Bias High", color=color(na), display=display.data_window, editable=false)
-mb_p_l = plot(mb_l2, "Bias Low", color=color(na), display=display.data_window, editable=false)
-mb_p_avg = plot(mb_ha_avg, "Bias Average", color=color(na), display=display.data_window, editable=false)
-fill(mb_p_l, mb_p_h, mb_show_mb ? mb_sigcolor : na)
+mb_p_h = plot(mb_enabled ? mb_h2 : na, "Bias High", color=color(na), display=display.data_window, editable=false)
+mb_p_l = plot(mb_enabled ? mb_l2 : na, "Bias Low", color=color(na), display=display.data_window, editable=false)
+mb_p_avg = plot(mb_enabled ? mb_ha_avg : na, "Bias Average", color=color(na), display=display.data_window, editable=false)
+fill(mb_p_l, mb_p_h, mb_enabled and mb_show_mb ? mb_sigcolor : na)
 mb_baseCandleColor = mb_o2 > mb_c2 ? mb_col_bear : mb_col_bull
 mb_col = color.new(mb_baseCandleColor, math.min(100, color.t(mb_baseCandleColor) + mb_transparencyBoost))
 plotcandle(mb_o2, mb_h2, mb_l2, mb_c2, title='heikin smoothed', color=mb_col, wickcolor=mb_col, bordercolor=mb_col,
-     display=mb_show_ha ? display.pane : display.data_window, editable=false)
+     display=not mb_enabled ? display.none : mb_show_ha ? display.pane : display.data_window, editable=false)
 
 mb_biasSignChange = ta.change(math.sign(mb_osc_bias))
 mb_strengthSignChange = ta.change(math.sign(mb_osc_bias - mb_osc_smooth))
-alertcondition(ta.change(mb_biasSignChange > 0),
+mb_bullTrendSwitch = ta.change(mb_biasSignChange > 0)
+mb_bearTrendSwitch = ta.change(mb_biasSignChange < 0)
+alertcondition(mb_enabled and mb_bullTrendSwitch,
   'Bullish Trend Switch (Bearish -> Bullish)', '{{exchange}}:{{ticker}}: Trend is now Bullish.')
 
-alertcondition(mb_osc_bias > 0 and mb_strengthSignChange > 0,
+alertcondition(mb_enabled and mb_osc_bias > 0 and mb_strengthSignChange > 0,
   'Bullish Trend Strengthens', '{{exchange}}:{{ticker}}: Bullish Trend is now Stronger.')
 
-alertcondition(mb_osc_bias > 0 and mb_strengthSignChange < 0,
+alertcondition(mb_enabled and mb_osc_bias > 0 and mb_strengthSignChange < 0,
   'Bullish Trend Weakens', '{{exchange}}:{{ticker}}: Bullish Trend is now Weaker.')
 
-alertcondition(ta.change(mb_biasSignChange < 0),
+alertcondition(mb_enabled and mb_bearTrendSwitch,
   'Bearish Trend Switch (Bullish -> Bearish)', '{{exchange}}:{{ticker}}: Trend is now Bearish.')
 
-alertcondition(mb_osc_bias < 0 and mb_strengthSignChange < 0,
+alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange < 0,
   'Bearish Trend Strengthens', '{{exchange}}:{{ticker}}: Bearish Trend is now Stronger.')
 
-alertcondition(mb_osc_bias < 0 and mb_strengthSignChange > 0,
+alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange > 0,
   'Bearish Trend Weakens', '{{exchange}}:{{ticker}}: Bearish Trend is now Weaker.')
-
-const string G_BB = "10 · Bollinger Bands"
-const color BB_LINE_COLOR = #000000
-const color BB_FILL_COLOR = #EEEEEE
-const int BB_LINE_WIDTH = 1
-
-showBB = input.bool(true, "Show Bollinger Bands", group=G_BB)
-bbLength = input.int(20, "Length", minval=2, maxval=500, group=G_BB)
-bbMultiplier = input.float(2.0, "Standard deviations", minval=0.1, maxval=10.0, step=0.1, group=G_BB)
-bbSource = input.source(close, "Source", group=G_BB)
-
-[bbBasis, bbUpper, bbLower] = ta.bb(bbSource, bbLength, bbMultiplier)
-bbUpperPlot = plot(showBB ? bbUpper : na, "Bollinger upper", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
-plot(showBB ? bbBasis : na, "Bollinger basis", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
-bbLowerPlot = plot(showBB ? bbLower : na, "Bollinger lower", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
-fill(bbUpperPlot, bbLowerPlot, color=showBB ? BB_FILL_COLOR : na, title="Bollinger fill", fillgaps=false)
