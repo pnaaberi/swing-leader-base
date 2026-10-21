@@ -5,6 +5,7 @@
 - Add independent upper, middle and lower line colors plus band-fill color under Bollinger settings; each native picker includes opacity.
 - Retain thin pure-black line/near-white fill defaults, top on/off control, Market Bias layering and all calculations/alerts.
 - Add focused picker/default/wiring regressions and update the shared role inventory.
+- Preserve the order of all 100 pre-existing input declarations by appending the four new picker inputs.
 
 ## 0.3.0
 

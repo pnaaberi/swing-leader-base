@@ -54,6 +54,8 @@ class BollingerContractTests(unittest.TestCase):
         for name, (default, label) in roles.items():
             self.assertIn(f'{name} = input.color({default}, "{label}", group=G_BB', BANDS)
         self.assertEqual(BANDS.count("input.color("), 4)
+        inputs = re.findall(r"(?m)^(\w+) = (?:mb_forceCtf\()?input\.\w+\(", SOURCE)
+        self.assertEqual(inputs[-5:], ["mb_osc_len", *roles])
 
     def test_no_new_alerts_or_signal_mutation(self):
         self.assertEqual(len(re.findall(r"(?m)^alertcondition\(", SOURCE)), 17)

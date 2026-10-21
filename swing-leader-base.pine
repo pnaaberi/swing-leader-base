@@ -817,6 +817,7 @@ const int BB_LINE_WIDTH = 1
 bbLength = input.int(20, "Length", minval=2, maxval=500, group=G_BB)
 bbMultiplier = input.float(2.0, "Standard deviations", minval=0.1, maxval=10.0, step=0.1, group=G_BB)
 bbSource = input.source(close, "Source", group=G_BB)
+mb_osc_len = input.int(7, "Oscillator Period", minval=1, group=G_BIAS)
 bbUpperColor = input.color(BB_LINE_COLOR, "Upper line", group=G_BB, inline="bbColors1")
 bbBasisColor = input.color(BB_LINE_COLOR, "Middle line", group=G_BB, inline="bbColors1")
 bbLowerColor = input.color(BB_LINE_COLOR, "Lower line", group=G_BB, inline="bbColors2")
@@ -842,7 +843,6 @@ mb_c2 = mb_request(mb_ha_htf, ta.ema(mb_haclose, mb_ha_len2))
 mb_h2 = mb_request(mb_ha_htf, ta.ema(mb_hahigh, mb_ha_len2))
 mb_l2 = mb_request(mb_ha_htf, ta.ema(mb_halow, mb_ha_len2))
 mb_ha_avg = (mb_h2 + mb_l2) / 2
-mb_osc_len = input.int(7, "Oscillator Period", minval=1, group=G_BIAS)
 mb_osc_bias = 100 * (mb_c2 - mb_o2)
 mb_osc_smooth = ta.ema(mb_osc_bias, mb_osc_len)
 mb_sigcolor = switch

@@ -35,6 +35,8 @@ Existing TradingView chart instances and saved templates can retain prior input 
 
 Enabled by default in **0 · Indicators**, with settings under **10 · Bollinger Bands**. Uses a 20-period simple moving average of close, with outer bands at ±2 standard deviations. **Upper line**, **Middle line**, **Lower line** and **Band fill** each have an independent color/opacity picker. The top switch hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
 
+All 100 pre-existing input declarations retain their order; the four color pickers are appended to that input schema.
+
 | Shared style token | Default | Usage |
 | --- | --- | --- |
 | `BB_LINE_COLOR` | `#000000` | Default for the independent upper, middle and lower line pickers |
