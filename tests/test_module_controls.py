@@ -15,7 +15,7 @@ class ModuleControlTests(unittest.TestCase):
     def test_all_nine_switches_are_first_and_unique(self):
         inputs = re.findall(r"(?m)^(\w+) = (?:mb_forceCtf\()?input\.\w+\(", SOURCE)
         self.assertEqual(inputs[:9], list(MASTERS))
-        self.assertEqual(len(inputs), 100)
+        self.assertEqual(len(inputs), 104)
         for name, default in MASTERS.items():
             declarations = re.findall(
                 rf"(?ms)^{name} = input\.bool\((.*?)\)\s*$", SOURCE,

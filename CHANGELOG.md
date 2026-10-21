@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Add independent upper, middle and lower line colors plus band-fill color under Bollinger settings; each native picker includes opacity.
+- Retain thin pure-black line/near-white fill defaults, top on/off control, Market Bias layering and all calculations/alerts.
+- Add focused picker/default/wiring regressions and update the shared role inventory.
+
 ## 0.3.0
 
 - Add a first Inputs section with nine module checkboxes; relocate existing switches without changing their defaults.

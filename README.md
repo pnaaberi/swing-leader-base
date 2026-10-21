@@ -14,7 +14,7 @@ Nine checkboxes cover SLB signals/levels/guide, moving averages, the custom volu
 
 The SLB master also gates its bar tint and alert conditions; moving-average display is independent. The Market Bias master hides its ribbon, optional HA candles and data-window values, and gates its six alert conditions. Other module switches retain their original behavior. The custom-profile switch cannot control a separate native TradingView VRVP.
 
-After upgrading from 0.2.x, use a fresh instance or reset inputs to source defaults, then reapply personal overrides: input controls have moved. Existing TradingView alerts retain their own settings snapshot; disable/recreate them separately after changing module switches.
+When upgrading a version that changes inputs, use a fresh instance or reset inputs to source defaults, then reapply personal overrides. Existing TradingView alerts retain their own settings snapshot; disable/recreate them separately after changing module switches.
 
 ## Market Bias defaults
 
@@ -33,17 +33,17 @@ Existing TradingView chart instances and saved templates can retain prior input 
 
 ## Bollinger Bands
 
-Enabled by default in **0 · Indicators**, with length, multiplier and source settings under **10 · Bollinger Bands**. Uses a 20-period simple moving average of close, with outer bands at ±2 standard deviations. The top switch hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
+Enabled by default in **0 · Indicators**, with settings under **10 · Bollinger Bands**. Uses a 20-period simple moving average of close, with outer bands at ±2 standard deviations. **Upper line**, **Middle line**, **Lower line** and **Band fill** each have an independent color/opacity picker. The top switch hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
 
 | Shared style token | Default | Usage |
 | --- | --- | --- |
-| `BB_LINE_COLOR` | `#000000` | Upper, basis and lower lines: pure black |
+| `BB_LINE_COLOR` | `#000000` | Default for the independent upper, middle and lower line pickers |
 | `BB_LINE_WIDTH` | `1` | All three lines: thinnest native plot width |
-| `BB_FILL_COLOR` | `#EEEEEE` | Near-white light-gray fill between outer bands |
+| `BB_FILL_COLOR` | `#EEEEEE` | Default for the band-fill color/opacity picker |
 
-Fixed black styling is intended for a light chart background. Bollinger Bands are an independent overlay: they do not change setup signals, alerts or risk levels.
+Black defaults suit a light chart background; choose different line colors for a dark chart. The four picker roles are `bbUpperColor`, `bbBasisColor`, `bbLowerColor` and `bbFillColor`. Changing one affects only that part. Bollinger Bands do not change setup signals, alerts or risk levels.
 
-The Bollinger drawing block runs before Market Bias. Its light-gray fill is below the Market Bias ribbon, while native fill/plot z-groups keep the thin Bollinger outlines crisp. No global plot-z-order override is used.
+The Bollinger drawing block runs before Market Bias. Its customizable fill is below the Market Bias ribbon, while native fill/plot z-groups keep the thin Bollinger outlines crisp. No global plot-z-order override is used.
 
 ## Checks
 
@@ -57,7 +57,7 @@ Run `python3 -B tools/recover_swatch.py /path/to/private-config.json`. The JSON 
 
 ## Status
 
-Version 0.3.0 adds top module controls and draws the Market Bias ribbon above the Bollinger fill. Source-contract checks pass; native TradingView compilation, control layout and actual chart rendering remain unverified.
+Version 0.3.1 adds independent Bollinger line/fill color and opacity controls. Existing top module controls and Market Bias layering are retained. Source-contract checks pass; native TradingView compilation, color pickers and chart rendering remain unverified.
 
 ## Repository protection
 

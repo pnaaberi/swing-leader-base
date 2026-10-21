@@ -23,12 +23,12 @@ class BollingerContractTests(unittest.TestCase):
         )
         self.assertIn('input.source(close, "Source", group=G_BB)', BANDS)
 
-    def test_three_thin_pure_black_lines(self):
+    def test_three_thin_black_defaults_and_independent_line_colors(self):
         self.assertIn("const color BB_LINE_COLOR = #000000", BANDS)
         self.assertIn("const int BB_LINE_WIDTH = 1", BANDS)
         self.assertEqual(len(PLOTS), 3)
-        for plot in PLOTS:
-            self.assertIn("color=BB_LINE_COLOR", plot)
+        for plot, role in zip(PLOTS, ("bbUpperColor", "bbBasisColor", "bbLowerColor")):
+            self.assertIn(f"color={role}", plot)
             self.assertIn("linewidth=BB_LINE_WIDTH", plot)
         self.assertEqual(
             set(re.findall(r"plot\(showBB \? (bb\w+) : na", BANDS)),
@@ -38,11 +38,22 @@ class BollingerContractTests(unittest.TestCase):
     def test_near_white_outer_band_fill_and_hide(self):
         self.assertIn("const color BB_FILL_COLOR = #EEEEEE", BANDS)
         self.assertIn(
-            "fill(bbUpperPlot, bbLowerPlot, color=showBB ? BB_FILL_COLOR : na,",
+            "fill(bbUpperPlot, bbLowerPlot, color=showBB ? bbFillColor : na,",
             BANDS,
         )
         self.assertIn('title="Bollinger fill", fillgaps=false)', BANDS)
         self.assertEqual(sum("showBB ? " in plot for plot in PLOTS), 3)
+
+    def test_four_native_color_pickers_have_separate_defaults(self):
+        roles = {
+            "bbUpperColor": ("BB_LINE_COLOR", "Upper line"),
+            "bbBasisColor": ("BB_LINE_COLOR", "Middle line"),
+            "bbLowerColor": ("BB_LINE_COLOR", "Lower line"),
+            "bbFillColor": ("BB_FILL_COLOR", "Band fill"),
+        }
+        for name, (default, label) in roles.items():
+            self.assertIn(f'{name} = input.color({default}, "{label}", group=G_BB', BANDS)
+        self.assertEqual(BANDS.count("input.color("), 4)
 
     def test_no_new_alerts_or_signal_mutation(self):
         self.assertEqual(len(re.findall(r"(?m)^alertcondition\(", SOURCE)), 17)
