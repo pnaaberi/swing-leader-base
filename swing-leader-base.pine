@@ -855,3 +855,19 @@ alertcondition(mb_osc_bias < 0 and mb_strengthSignChange < 0,
 
 alertcondition(mb_osc_bias < 0 and mb_strengthSignChange > 0,
   'Bearish Trend Weakens', '{{exchange}}:{{ticker}}: Bearish Trend is now Weaker.')
+
+const string G_BB = "10 · Bollinger Bands"
+const color BB_LINE_COLOR = #000000
+const color BB_FILL_COLOR = #EEEEEE
+const int BB_LINE_WIDTH = 1
+
+showBB = input.bool(true, "Show Bollinger Bands", group=G_BB)
+bbLength = input.int(20, "Length", minval=2, maxval=500, group=G_BB)
+bbMultiplier = input.float(2.0, "Standard deviations", minval=0.1, maxval=10.0, step=0.1, group=G_BB)
+bbSource = input.source(close, "Source", group=G_BB)
+
+[bbBasis, bbUpper, bbLower] = ta.bb(bbSource, bbLength, bbMultiplier)
+bbUpperPlot = plot(showBB ? bbUpper : na, "Bollinger upper", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
+plot(showBB ? bbBasis : na, "Bollinger basis", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
+bbLowerPlot = plot(showBB ? bbLower : na, "Bollinger lower", color=BB_LINE_COLOR, linewidth=BB_LINE_WIDTH)
+fill(bbUpperPlot, bbLowerPlot, color=showBB ? BB_FILL_COLOR : na, title="Bollinger fill", fillgaps=false)
