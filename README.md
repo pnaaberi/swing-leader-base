@@ -8,6 +8,21 @@ Open `swing-leader-base.pine` in TradingView's Pine Editor, save it and select *
 
 This is an indicator, not a trading strategy or order-execution system. Profile volumes are approximated from chart OHLCV. Native TradingView VRVP is a separate optional companion. Market Bias is independent of the setup conditions. Not financial advice.
 
+## Market Bias defaults
+
+| Setting | Default |
+| --- | --- |
+| Timeframe | Chart |
+| Period / Smoothing | 7 / 20 |
+| Show HA Candles / Market Bias | Off / On |
+| Extra transparency / Oscillator period | 0 / 7 |
+| Bullish color / base transparency | `#066756` / 13.3333% |
+| Bearish color / base transparency | `#F75360` / 22.7451% |
+
+The shorter periods change the default Market Bias overlay and its alerts, not the SLB setup formulas. Colors are calibrated visual estimates from the reference swatches, with at most one RGB level of checker-pixel reconstruction error under the calibration model. Quantized screenshot pixels cannot prove unique original RGBA values. Extra transparency 0 means no *additional* transparency, not an opaque bias fill.
+
+Existing TradingView chart instances and saved templates can retain prior input values. Use the indicator's Defaults/reset controls or add a fresh instance to apply source defaults.
+
 ## Bollinger Bands
 
 Enabled by default under **10 · Bollinger Bands**. Uses a 20-period simple moving average of close, with outer bands at ±2 standard deviations. Length, multiplier and source are adjustable; the visibility toggle hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
@@ -24,9 +39,15 @@ Fixed black styling is intended for a light chart background. Bollinger Bands ar
 
 Run `python3 -B -m unittest discover -s tests -v` for source-contract regressions. These check integration, style, input bounds and hide behavior; they do not execute Pine. Compile in TradingView, inspect the three lines/fill, then toggle the overlay off to check the chart. The original source is retained in Git for rollback.
 
+### Optional swatch recovery
+
+`tools/recover_swatch.py` uses Pillow to read screenshot swatches, calibrate checker backgrounds from known reference colors, and find the closest RGB/8-bit-alpha fit. Pillow is needed only for this tool and its tests, not for the Pine indicator.
+
+Run `python3 -B tools/recover_swatch.py /path/to/private-config.json`. The JSON supplies `calibration_image`, `calibrations` (each with `rect`, `rgb`, `transparency`), `image`, and named `swatches` rectangles. Rectangles are `[left, top, right, bottom]`; transparency is 0–100. Output includes inferred colors, reconstructed checker colors, fit error and ambiguity. Incompatible calibration/swatches fail instead of claiming a match. Keep source screenshots and private configuration outside the repository.
+
 ## Status
 
-Version 0.2.0. Existing setup logic and alerts are unchanged. Source-contract tests pass; TradingView compilation and chart rendering have not been verified.
+Version 0.2.1 aligns the readable reference settings and supplies calibrated visual color matches. Source and image-recovery checks pass; TradingView compilation and chart rendering of this revision have not been verified.
 
 ## Attribution and licenses
 

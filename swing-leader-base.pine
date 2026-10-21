@@ -786,14 +786,14 @@ mb_forceCtf(simple string mb_str_tf) =>
     mb_i_tf_sec < mb_ctf_sec ? '' : mb_str_tf
 
 mb_ha_htf = mb_forceCtf(input.timeframe('', 'Timeframe', tooltip="This timeframe must be equal to or greater than the chart's timeframe", group=G_BIAS))
-mb_ha_len = input.int(100, 'Period', minval=1, group=G_BIAS)
-mb_ha_len2 = input.int(100, 'Smoothing', minval=1, group=G_BIAS)
-mb_show_ha = input.bool(true, "Show HA Candles", inline='ha/mb display', group=G_BIAS)
+mb_ha_len = input.int(7, 'Period', minval=1, group=G_BIAS)
+mb_ha_len2 = input.int(20, 'Smoothing', minval=1, group=G_BIAS)
+mb_show_ha = input.bool(false, "Show HA Candles", inline='ha/mb display', group=G_BIAS)
 mb_show_mb = input.bool(true, "Show Market Bias", inline='ha/mb display', group=G_BIAS)
-mb_col_bull = input.color(color.lime, 'Color: Bullish', inline='bull/bear color', group=G_BIAS, display=display.none)
-mb_col_bear = input.color(color.red, 'Bearish', inline='bull/bear color', group=G_BIAS, display=display.none)
-mb_transparencyBoost = input.int(30, "Extra transparency (%)", minval=0, maxval=100, group=G_BIAS,
-     tooltip="Adds percentage points to the original Market Bias transparency, capped at 100. Default +30: strong fill 35 to 65, weak fill 75 to 100, HA candle bodies 0 to 30. Set 0 for the original appearance.")
+mb_col_bull = input.color(color.rgb(6, 103, 86, 13.3333), 'Color: Bullish', inline='bull/bear color', group=G_BIAS, display=display.none)
+mb_col_bear = input.color(color.rgb(247, 83, 96, 22.7451), 'Bearish', inline='bull/bear color', group=G_BIAS, display=display.none)
+mb_transparencyBoost = input.int(0, "Extra transparency (%)", minval=0, maxval=100, group=G_BIAS,
+     tooltip="Adds percentage points to the Market Bias transparency, capped at 100. Default 0 adds no extra transparency.")
 
 mb_strongTransparency = math.min(100, 35 + mb_transparencyBoost)
 mb_weakTransparency = math.min(100, 75 + mb_transparencyBoost)
