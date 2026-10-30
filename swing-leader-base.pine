@@ -49,7 +49,7 @@ markerFontSize = input.int(1, "Signal font size", minval=1, maxval=12, group=G_S
 
 markerKeep = input.int(250, "Signal labels to retain", minval=20, maxval=350, group=G_STYLE)
 markerGap = input.float(0.22, "Signal spacing × ATR", minval=0.05, maxval=2.0, step=0.05, group=G_STYLE)
-showRibbon = input.bool(false, "Very faint EMA ribbon", group=G_STYLE)
+showRibbon = input.bool(false, "EMA cloud ribbon", group=G_STYLE)
 showLevels = input.bool(true, "Active stop / target", group=G_STYLE)
 showBarTint = input.bool(false, "Very faint bar tint", group=G_STYLE)
 guideMode = input.string("Compact", "Guide", options=["Off", "Compact", "Checklist"], group=G_STYLE)
@@ -266,10 +266,18 @@ if showTradeMarkers and targetExit
     signalLabel(high + labelGap, "Target", lilacColor, false,
          "Target level touched: " + str.tostring(exitTargetLevel, format.mintick) + ". Not an execution price.")
 
-fastPlot = plot(showMAs ? emaFast : na, "Fast EMA", color=color.new(mintColor, 15))
-slowPlot = plot(showMAs ? emaSlow : na, "Slow EMA", color=color.new(peachColor, 15))
+// The slow EMA is the cloud's defined outer edge; the fast side fades toward price.
+ribbonActive = showMAs and showRibbon
+ribbonBull = emaFast >= emaSlow
+ribbonColor = ribbonBull ? mintColor : roseColor
+ribbonDense = ribbonActive ? color.new(ribbonColor, 45) : na
+ribbonSoft = ribbonActive ? color.new(ribbonColor, 90) : na
+fastPlot = plot(showMAs ? emaFast : na, "Fast EMA", color=ribbonActive ? color.new(ribbonColor, 75) : color.new(mintColor, 15))
+slowPlot = plot(showMAs ? emaSlow : na, "Slow EMA", color=ribbonActive ? color.new(ribbonColor, 10) : color.new(peachColor, 15), linewidth=2)
 plot(showMAs ? smaTrend : na, "Trend SMA", color=color.new(chart.fg_color, 60), linewidth=1)
-fill(fastPlot, slowPlot, color=showMAs and showRibbon ? color.new(emaFast >= emaSlow ? mintColor : roseColor, 94) : na)
+fill(fastPlot, slowPlot, top_value=math.max(emaFast, emaSlow), bottom_value=math.min(emaFast, emaSlow),
+     top_color=ribbonBull ? ribbonSoft : ribbonDense, bottom_color=ribbonBull ? ribbonDense : ribbonSoft,
+     title="EMA cloud ribbon", fillgaps=false)
 plot(showSLB and showLevels and inTrade ? stopPrice : na, "Active stop", color=roseColor, linewidth=1, style=plot.style_linebr)
 plot(showSLB and showLevels and inTrade ? targetPrice : na, "Active target", color=lilacColor, linewidth=1, style=plot.style_linebr)
 barcolor(showSLB and showBarTint ? inTrade ? color.new(mintColor, 65) : trendOk ? color.new(mintColor, 80) : na : na)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- Restyle the optional EMA ribbon with a mint/rose vertical gradient and a 2 px slow-EMA edge.
+- Rename its existing default-off control to EMA cloud ribbon; keep input order and defaults.
+- Preserve EMA calculations, signals, alerts and Market Bias. TradingView compilation and rendering require manual verification.
+
 ## 0.3.1
 
 - Add independent upper, middle and lower line colors plus band-fill color under Bollinger settings; each native picker includes opacity.

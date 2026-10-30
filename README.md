@@ -16,6 +16,12 @@ The SLB master also gates its bar tint and alert conditions; moving-average disp
 
 When upgrading a version that changes inputs, use a fresh instance or reset inputs to source defaults, then reapply personal overrides. Existing TradingView alerts retain their own settings snapshot; disable/recreate them separately after changing module switches.
 
+## EMA cloud ribbon
+
+Enable **4 · Minimal display → EMA cloud ribbon** with **0 · Indicators → Moving averages** on. The ribbon remains off by default. It fills the existing fast/slow EMA gap with a translucent gradient: 55% opacity at the defined slow-EMA edge, fading to 10% at the fast edge. The slow edge is 2 px. Bullish clouds use the existing mint **Breakout / support** color; bearish clouds use rose **Stop / resistance**. Those color pickers also retain their existing uses elsewhere.
+
+This is a visual treatment of our EMA ribbon, not a recreation of another indicator's calculations. EMA periods, signals, alerts and Market Bias are unchanged. Turning the ribbon off restores mint/peach EMA colors; the slow line retains its 2 px width. Native TradingView compilation and visual acceptance of the gradient remain to be checked.
+
 ## Market Bias defaults
 
 | Setting | Default |
@@ -59,7 +65,7 @@ Run `python3 -B tools/recover_swatch.py /path/to/private-config.json`. The JSON 
 
 ## Status
 
-Version 0.3.1 adds independent Bollinger line/fill color and opacity controls. Existing top module controls and Market Bias layering are retained. Source-contract checks pass; native TradingView compilation, color pickers and chart rendering remain unverified.
+Version 0.3.2 styles the optional EMA ribbon as a mint/rose gradient cloud with a defined outer edge. Independent Bollinger line/fill color and opacity controls remain available. Existing top module controls and Market Bias layering are retained. Source-contract checks pass; native TradingView compilation, color pickers and chart rendering remain unverified.
 
 ## Repository protection
 
