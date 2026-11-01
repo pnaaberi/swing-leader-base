@@ -6,4 +6,4 @@
 - Keep credentials, private operational records and generated QA evidence out of this repository.
 - Update affected documentation and commit only scoped changes. Verify source equivalence for cleanup-only work.
 - Pine compilation and chart behavior must be checked in TradingView; static checks are not runtime validation.
-- Public publication requires approval of the exact GitHub destination and visibility.
+- Standing owner approval: after verification, publish documentation corrections to the existing public `pnaaberi/swing-leader-base` repository by normal fast-forward push without asking again. This approval does not cover other repositories, visibility changes, secret/permission changes or destructive actions. Other public publication still requires approval of the exact destination and visibility.
