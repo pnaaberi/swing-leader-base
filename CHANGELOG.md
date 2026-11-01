@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Docs: clarify range versus candle-profile data sources, per-module alert gates, configurable Bollinger defaults and display-only Market Bias transparency. No Pine changes.
+
 ## 0.3.3
 
 - Enable the EMA cloud by default, raise signal font size to 7, narrow the custom profile to 13%, and add 18 points of Market Bias transparency.

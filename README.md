@@ -6,13 +6,13 @@ TradingView Pine Script v6 overlay combining swing setups, a custom volume profi
 
 Open `swing-leader-base.pine` in TradingView's Pine Editor, save it and select **Add to chart**. The first Inputs section, **0 · Indicators**, has the module switches; detailed settings remain grouped below.
 
-This is an indicator, not a trading strategy or order-execution system. Profile volumes are approximated from chart OHLCV. Native TradingView VRVP is a separate optional companion. Market Bias is independent of the setup conditions. Not financial advice.
+This is an indicator, not a trading strategy or order-execution system. The custom range profile and shelves approximate volume from chart OHLCV; optional candle profiles use the selected lower-timeframe data, with up/down direction based on candle close versus open, not actual bid/ask delta. Native TradingView VRVP is a separate optional companion. Market Bias is independent of the setup conditions. Not financial advice.
 
 ## Top module switches
 
 Nine checkboxes cover SLB signals/levels/guide, moving averages, the custom volume profile/shelves, support/resistance, Fibonacci zones, structure breaks, candle profiles, Market Bias and Bollinger Bands. Fibonacci, structure breaks and candle profiles remain off by default. Setup, volume, risk and timeframe defaults are unchanged by the visual polish.
 
-The SLB master also gates its bar tint and alert conditions; moving-average display is independent. The Market Bias master hides its ribbon, optional HA candles and data-window values, and gates its six alert conditions. Other module switches retain their original behavior. The custom-profile switch cannot control a separate native TradingView VRVP.
+The SLB master gates its signals, stop/target levels, guide, bar tint and five entry/exit alerts (Buy, Breakout, Pullback, Stop and Target); moving averages are independent. Structure-break alerts follow the Structure breaks switch, and the four order-block formation/invalidation alerts follow Support / resistance in Volume order blocks mode, independently of the SLB master. The Market Bias master hides its ribbon, optional HA candles and data-window values, and gates its six alert conditions. The custom-profile switch cannot control a separate native TradingView VRVP.
 
 When upgrading a version that changes inputs, use a fresh instance or reset inputs to source defaults, then reapply personal overrides. Existing TradingView alerts retain their own settings snapshot; disable/recreate them separately after changing module switches.
 
@@ -41,13 +41,13 @@ This is a visual treatment of our EMA ribbon, not a recreation of another indica
 | Bullish color / base transparency | `#066756` / 13.3333% |
 | Bearish color / base transparency | `#F75360` / 22.7451% |
 
-The shorter periods change the default Market Bias overlay and its alerts, not the SLB setup formulas. Colors are calibrated visual estimates from the reference swatches, with at most one RGB level of checker-pixel reconstruction error under the calibration model. Quantized screenshot pixels cannot prove unique original RGBA values. Extra transparency 18 adds 18 percentage points: strong/weak bias fills are 53%/93% transparent. Setting it to 0 restores the previous ribbon opacity.
+Market Bias period/smoothing settings affect its own calculations and alerts, not the SLB setup formulas; extra transparency changes display only. Colors are calibrated visual estimates from the reference swatches, with at most one RGB level of checker-pixel reconstruction error under the calibration model. Quantized screenshot pixels cannot prove unique original RGBA values. Extra transparency 18 adds 18 percentage points: strong/weak bias fills are 53%/93% transparent. Setting it to 0 restores the previous ribbon opacity.
 
 Existing TradingView chart instances and saved templates can retain prior input values. Use the indicator's Defaults/reset controls or add a fresh instance to apply source defaults.
 
 ## Bollinger Bands
 
-Enabled by default in **0 · Indicators**, with settings under **10 · Bollinger Bands**. Uses a 20-period simple moving average of close, with outer bands at ±2 standard deviations. **Upper line**, **Middle line**, **Lower line** and **Band fill** each have an independent color/opacity picker. The top switch hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
+Enabled by default in **0 · Indicators**, with settings under **10 · Bollinger Bands**. Defaults to a 20-period simple moving average of close, with outer bands at ±2 standard deviations; Length, Standard deviations and Source are configurable. **Upper line**, **Middle line**, **Lower line** and **Band fill** each have an independent color/opacity picker. The top switch hides all three lines and their fill. Length must be at least 2 and the multiplier must be positive. Bands need sufficient source history.
 
 All 100 pre-existing input declarations retain their order; the four color pickers are appended to that input schema.
 
