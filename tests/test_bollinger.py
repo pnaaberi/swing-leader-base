@@ -23,8 +23,9 @@ class BollingerContractTests(unittest.TestCase):
         )
         self.assertIn('input.source(close, "Source", group=G_BB)', BANDS)
 
-    def test_three_thin_black_defaults_and_independent_line_colors(self):
-        self.assertIn("const color BB_LINE_COLOR = #000000", BANDS)
+    def test_three_thin_muted_defaults_and_independent_line_colors(self):
+        self.assertIn("const color BB_LINE_COLOR = color.new(#7C8798, 20)", BANDS)
+        self.assertIn("const color BB_BASIS_COLOR = color.new(#7C8798, 55)", BANDS)
         self.assertIn("const int BB_LINE_WIDTH = 1", BANDS)
         self.assertEqual(len(PLOTS), 3)
         for plot, role in zip(PLOTS, ("bbUpperColor", "bbBasisColor", "bbLowerColor")):
@@ -36,7 +37,7 @@ class BollingerContractTests(unittest.TestCase):
         )
 
     def test_near_white_outer_band_fill_and_hide(self):
-        self.assertIn("const color BB_FILL_COLOR = #EEEEEE", BANDS)
+        self.assertIn("const color BB_FILL_COLOR = color.new(#EEEEEE, 92)", BANDS)
         self.assertIn(
             "fill(bbUpperPlot, bbLowerPlot, color=showBB ? bbFillColor : na,",
             BANDS,
@@ -47,7 +48,7 @@ class BollingerContractTests(unittest.TestCase):
     def test_four_native_color_pickers_have_separate_defaults(self):
         roles = {
             "bbUpperColor": ("BB_LINE_COLOR", "Upper line"),
-            "bbBasisColor": ("BB_LINE_COLOR", "Middle line"),
+            "bbBasisColor": ("BB_BASIS_COLOR", "Middle line"),
             "bbLowerColor": ("BB_LINE_COLOR", "Lower line"),
             "bbFillColor": ("BB_FILL_COLOR", "Band fill"),
         }

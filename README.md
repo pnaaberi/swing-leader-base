@@ -10,17 +10,25 @@ This is an indicator, not a trading strategy or order-execution system. Profile 
 
 ## Top module switches
 
-Nine checkboxes cover SLB signals/levels/guide, moving averages, the custom volume profile/shelves, support/resistance, Fibonacci zones, structure breaks, candle profiles, Market Bias and Bollinger Bands. Fibonacci, structure breaks and candle profiles remain off by default; existing numeric, color and timeframe defaults are unchanged.
+Nine checkboxes cover SLB signals/levels/guide, moving averages, the custom volume profile/shelves, support/resistance, Fibonacci zones, structure breaks, candle profiles, Market Bias and Bollinger Bands. Fibonacci, structure breaks and candle profiles remain off by default. Setup, volume, risk and timeframe defaults are unchanged by the visual polish.
 
 The SLB master also gates its bar tint and alert conditions; moving-average display is independent. The Market Bias master hides its ribbon, optional HA candles and data-window values, and gates its six alert conditions. Other module switches retain their original behavior. The custom-profile switch cannot control a separate native TradingView VRVP.
 
 When upgrading a version that changes inputs, use a fresh instance or reset inputs to source defaults, then reapply personal overrides. Existing TradingView alerts retain their own settings snapshot; disable/recreate them separately after changing module switches.
 
+## Visual hierarchy
+
+Version 0.3.3 enables the EMA cloud by default, raises signal font size from 1 to 7, narrows the custom profile from 18% to 13%, and adds 18 points of Market Bias transparency. Bar tint and HA candles remain off. All 104 inputs retain their order; these appearance defaults intentionally change.
+
+In both S/R modes, the newest surviving zone on each side has a stronger border and text. Older zones add 3 fill-transparency points (capped at 98) and use fainter borders/text. This denotes recency, not confidence, strength or a changed zone-detection rule. The existing midpoint controls remain independent.
+
+Profile tags use VAH / POC / VAL with full names in hover tooltips; outside-value-area histogram rows fade further. The compact guide shows a state badge and score, a base-high trigger (or the reference entry while managing), and the existing next-action explanation. Its score is a setup-rule count, not a probability. Missing setup history shows a dash rather than an incomplete score. Checklist rows remain available, with neutral backgrounds and an extra Next row; candle-profile warnings occupy a separate row.
+
 ## EMA cloud ribbon
 
-Enable **4 · Minimal display → EMA cloud ribbon** with **0 · Indicators → Moving averages** on. The ribbon remains off by default. It fills the existing fast/slow EMA gap with a translucent gradient: 55% opacity at the defined slow-EMA edge, fading to 10% at the fast edge. The slow edge is 2 px. Bullish clouds use the existing mint **Breakout / support** color; bearish clouds use rose **Stop / resistance**. Those color pickers also retain their existing uses elsewhere.
+**4 · Minimal display → EMA cloud ribbon** is on by default and requires **0 · Indicators → Moving averages** on. It fills the existing fast/slow EMA gap with a translucent gradient: 55% opacity at the defined slow-EMA edge, fading to 10% at the fast edge. The slow edge is 2 px. Bullish clouds use the existing mint **Breakout / support** color; bearish clouds use rose **Stop / resistance**. Those color pickers also retain their existing uses elsewhere.
 
-This is a visual treatment of our EMA ribbon, not a recreation of another indicator's calculations. EMA periods, signals, alerts and Market Bias are unchanged. Turning the ribbon off restores mint/peach EMA colors; the slow line retains its 2 px width. Native TradingView compilation and visual acceptance of the gradient remain to be checked.
+This is a visual treatment of our EMA ribbon, not a recreation of another indicator's calculations. EMA periods, signals, alerts and Market Bias calculations are unchanged. Turning the ribbon off restores mint/peach EMA colors; the slow line retains its 2 px width. Native TradingView compilation and visual acceptance of the gradient remain to be checked.
 
 ## Market Bias defaults
 
@@ -29,11 +37,11 @@ This is a visual treatment of our EMA ribbon, not a recreation of another indica
 | Timeframe | Chart |
 | Period / Smoothing | 7 / 20 |
 | Show HA Candles / Market Bias | Off / On |
-| Extra transparency / Oscillator period | 0 / 7 |
+| Extra transparency / Oscillator period | 18 / 7 |
 | Bullish color / base transparency | `#066756` / 13.3333% |
 | Bearish color / base transparency | `#F75360` / 22.7451% |
 
-The shorter periods change the default Market Bias overlay and its alerts, not the SLB setup formulas. Colors are calibrated visual estimates from the reference swatches, with at most one RGB level of checker-pixel reconstruction error under the calibration model. Quantized screenshot pixels cannot prove unique original RGBA values. Extra transparency 0 means no *additional* transparency, not an opaque bias fill.
+The shorter periods change the default Market Bias overlay and its alerts, not the SLB setup formulas. Colors are calibrated visual estimates from the reference swatches, with at most one RGB level of checker-pixel reconstruction error under the calibration model. Quantized screenshot pixels cannot prove unique original RGBA values. Extra transparency 18 adds 18 percentage points: strong/weak bias fills are 53%/93% transparent. Setting it to 0 restores the previous ribbon opacity.
 
 Existing TradingView chart instances and saved templates can retain prior input values. Use the indicator's Defaults/reset controls or add a fresh instance to apply source defaults.
 
@@ -45,17 +53,20 @@ All 100 pre-existing input declarations retain their order; the four color picke
 
 | Shared style token | Default | Usage |
 | --- | --- | --- |
-| `BB_LINE_COLOR` | `#000000` | Default for the independent upper, middle and lower line pickers |
+| `BB_LINE_COLOR` | `#7C8798`, 20% transparent | Default for the independent upper and lower line pickers |
+| `BB_BASIS_COLOR` | `#7C8798`, 55% transparent | Quieter middle-line default |
 | `BB_LINE_WIDTH` | `1` | All three lines: thinnest native plot width |
-| `BB_FILL_COLOR` | `#EEEEEE` | Default for the band-fill color/opacity picker |
+| `BB_FILL_COLOR` | `#EEEEEE`, 92% transparent | Subtle band-fill default |
 
-Black defaults suit a light chart background; choose different line colors for a dark chart. The four picker roles are `bbUpperColor`, `bbBasisColor`, `bbLowerColor` and `bbFillColor`. Changing one affects only that part. Bollinger Bands do not change setup signals, alerts or risk levels.
+Muted slate defaults replace the previous black outlines, with a quieter middle line and 8%-opaque fill. The four picker roles remain `bbUpperColor`, `bbBasisColor`, `bbLowerColor` and `bbFillColor`; each picker changes only its own part. Confirm contrast on both light and dark charts and adjust the independent pickers if needed. Bollinger Bands do not change setup signals, alerts or risk levels.
 
 The Bollinger drawing block runs before Market Bias. Its customizable fill is below the Market Bias ribbon, while native fill/plot z-groups keep the thin Bollinger outlines crisp. No global plot-z-order override is used.
 
 ## Checks
 
 Run `python3 -B -m unittest discover -s tests -v` for source-contract regressions. These check integration, style, input bounds and hide behavior; they do not execute Pine. Compile in TradingView, inspect the three lines/fill, then toggle the overlay off to check the chart. The original source is retained in Git for rollback.
+
+For visual acceptance, use a fresh/reset instance on the same symbol, timeframe and zoom as the previous revision. Check light and dark backgrounds; all nine switches and all-off; Compact/Checklist/Off guides with candle-profile warnings; both S/R modes as new zones form or invalidate; profile/VA/POC labels; and active stop/target visibility. Test insufficient history and a candle-profile timeframe equal to or above the chart timeframe: retain the loading/invalid-timeframe explanation, without overlapping guide rows. These are manual TradingView checks, not results supplied by the source tests. Roll back to the previous Git revision and restore prior saved settings if needed.
 
 ### Optional swatch recovery
 
@@ -65,7 +76,7 @@ Run `python3 -B tools/recover_swatch.py /path/to/private-config.json`. The JSON 
 
 ## Status
 
-Version 0.3.2 styles the optional EMA ribbon as a mint/rose gradient cloud with a defined outer edge. Independent Bollinger line/fill color and opacity controls remain available. Existing top module controls and Market Bias layering are retained. Source-contract checks pass; native TradingView compilation, color pickers and chart rendering remain unverified.
+Version 0.3.3 is a display-only polish of signal labels, EMA/Bias/Bollinger hierarchy, zone recency, profile tags and the guide. Setup/risk calculations, zone detection, all 17 alerts, input ordering and drawing budgets are preserved. Source-contract checks do not prove native execution; TradingView compilation, color pickers, light/dark chart rendering and saved-instance migration remain unverified.
 
 ## Repository protection
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.3
+
+- Enable the EMA cloud by default, raise signal font size to 7, narrow the custom profile to 13%, and add 18 points of Market Bias transparency.
+- Use muted slate Bollinger outlines, a quieter middle line and 92%-transparent near-white fill; retain independent native color/opacity pickers.
+- Emphasize the newest surviving S/R zone per side in both modes; fade older fills/borders/text without changing zone detection or suggesting confidence.
+- Shorten profile tags to VAH / POC / VAL with explanatory tooltips and fade outside-value-area rows further.
+- Give the guide one state badge, a score header, neutral detail rows and nonoverlapping action/candle-warning rows; preserve missing-history and error explanations.
+- Preserve setup/risk calculations, alerts, input order and drawing budgets. Reset inputs or add a fresh instance for the new appearance defaults; native TradingView compilation and light/dark rendering still require manual verification.
+
 ## 0.3.2
 
 - Restyle the optional EMA ribbon with a mint/rose vertical gradient and a 2 px slow-EMA edge.

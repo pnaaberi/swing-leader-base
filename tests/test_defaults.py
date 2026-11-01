@@ -7,8 +7,8 @@ from pathlib import Path
 SOURCE = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text()
 SHOWN_DEFAULTS = {
     "Minimal display": {
-        "showTradeMarkers": True, "markerFontSize": 1, "markerKeep": 250,
-        "markerGap": 0.22, "showMAs": True, "showRibbon": False,
+        "showTradeMarkers": True, "markerFontSize": 7, "markerKeep": 250,
+        "markerGap": 0.22, "showMAs": True, "showRibbon": True,
         "showLevels": True, "showBarTint": False, "guideMode": "Compact",
         "guidePosition": "position.top_left",
     },
@@ -33,7 +33,7 @@ SHOWN_DEFAULTS = {
     "Market Bias": {
         "mb_ha_htf": "", "mb_ha_len": 7, "mb_ha_len2": 20,
         "mb_show_ha": False, "mb_show_mb": True,
-        "mb_transparencyBoost": 0, "mb_osc_len": 7,
+        "mb_transparencyBoost": 18, "mb_osc_len": 7,
     },
 }
 
@@ -69,9 +69,9 @@ class ScreenshotDefaultTests(unittest.TestCase):
             self.assertIsNotNone(match)
             self.assertEqual(tuple(float(value) for value in match.group(1).split(",")), rgba)
 
-    def test_transparency_help_matches_zero_default(self):
+    def test_transparency_help_matches_polished_default(self):
         setting = SOURCE.split("mb_transparencyBoost = input.int(", 1)[1].split("\n\n", 1)[0]
-        self.assertIn("Default 0 adds no extra transparency", setting)
+        self.assertIn("Default 18 keeps the ribbon secondary", setting)
         self.assertNotIn("Default +30", setting)
 
 
