@@ -88,3 +88,18 @@ Version 0.3.3 is a display-only polish of signal labels, EMA/Bias/Bollinger hier
 - Market Bias: adapted from © Professeur_X, [Mozilla Public License 2.0](https://mozilla.org/MPL/2.0/).
 
 Retain the respective notices and comply with the original terms. No blanket license or additional relicensing permission is asserted for the combined script.
+
+## RSI panel
+
+**9 · RSI panel** draws a blocky RSI meter in the bottom-right corner (position selectable) with a small edge gap. Each column is one bar, oldest left; each block is 10 RSI points. Rose ≥ 70, peach 50–70, blue 30–50, mint ≤ 30; faint rows mark 70 and 30. The header shows length, chart timeframe, current RSI with a 3-bar slope arrow, and the next-higher timeframe's RSI from closed bars only (no repaint).
+
+| Chart | Auto length | Higher TF |
+|---|---|---|
+| ≤ 5m | 9 | 15m |
+| ≤ 15m | 12 | 1h |
+| ≤ 1h | 12 | 4h |
+| ≤ 4h | 14 | 1D |
+| 1D | 14 | 1W |
+| > 1D | 10 | 1M |
+
+Set **RSI length** above 0 to override. The setup score keeps its own fixed RSI 14. Two alerts fire when panel RSI crosses above 70 or below 30.

@@ -5,7 +5,8 @@ import unittest
 from pathlib import Path
 
 
-SOURCE = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text()
+# The appended RSI panel (0.4.0) is checked in test_rsi_panel.py; protected contracts cover the rest.
+SOURCE = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text().split("\n\n// ── RSI panel", 1)[0] + "\n"
 # Exact protected regions from v0.3.2 (fc843b1), independent of local Git history.
 BASELINE_HASHES = {
     "core": "c1ed1f6cc5fbc451c3c9684d07c21dfeddcf484cc15222938cbc4015a10164a3",
