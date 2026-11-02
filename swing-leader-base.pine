@@ -933,7 +933,7 @@ alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange > 0,
 
 // ── RSI panel: classic RSI line with 70/50/30 levels, drawn top-right past the last bar ──
 const string G_RSI = "11 · RSI panel"
-showRsiPanel = input.bool(true, "RSI panel", group=G_RSI,
+showRsiPanel = input.bool(false, "RSI panel", group=G_RSI,
      tooltip="Drawn in the empty space right of the last bar; widen the chart's right margin if it is cut off. Auto length: ≤5m 9, ≤1h 12, ≤1D 14, above 1D 10. Higher-timeframe RSI uses the next step up (closed bars only).")
 rsiLenInput = input.int(0, "RSI length (0 = auto)", minval=0, maxval=50, group=G_RSI)
 rsiPanelBars = input.int(40, "History bars", minval=10, maxval=150, group=G_RSI)

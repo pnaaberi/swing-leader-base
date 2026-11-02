@@ -162,3 +162,7 @@ Retain the respective notices and comply with the original terms. No blanket lic
 | > 1D | 10 | 1M |
 
 Set **RSI length** above 0 to override. The setup score keeps its own fixed RSI 14. Two alerts fire when panel RSI crosses above 70 or below 30.
+
+### RSI in its own pane (recommended)
+
+`rsi-pane.pine` is a separate indicator that shows the same timeframe-aware RSI in a normal pane under the chart: purple line, 70/50/30 levels, gradient fills above 70 / below 30 and a stepped higher-timeframe RSI line. Add it as a second script. The in-chart panel above is now off by default.
