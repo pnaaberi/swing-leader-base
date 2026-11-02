@@ -931,8 +931,8 @@ alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange < 0,
 alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange > 0,
   'Bearish Trend Weakens', '{{exchange}}:{{ticker}}: Bearish Trend is now Weaker.')
 
-// ── RSI panel: classic RSI line with 70/50/30 levels, drawn bottom-right past the last bar ──
-const string G_RSI = "9 · RSI panel"
+// ── RSI panel: classic RSI line with 70/50/30 levels, drawn top-right past the last bar ──
+const string G_RSI = "11 · RSI panel"
 showRsiPanel = input.bool(true, "RSI panel", group=G_RSI,
      tooltip="Drawn in the empty space right of the last bar; widen the chart's right margin if it is cut off. Auto length: ≤5m 9, ≤1h 12, ≤1D 14, above 1D 10. Higher-timeframe RSI uses the next step up (closed bars only).")
 rsiLenInput = input.int(0, "RSI length (0 = auto)", minval=0, maxval=50, group=G_RSI)
@@ -971,7 +971,7 @@ if barstate.islast
         n = rsiPanelBars
         x0 = bar_index + RSI_GAP_BARS
         h = (rsiRangeHi - rsiRangeLo) * rsiPanelHeight / 100
-        y0 = rsiRangeLo
+        y0 = rsiRangeHi - h  // top of the recent range
         // 30–70 band and frame levels
         rsiBand := box.new(x0, rsiY(y0, h, 70), x0 + n - 1, rsiY(y0, h, 30), border_color=na, bgcolor=color.new(RSI_LINE_COLOR, 92))
         for lv in array.from(70.0, 50.0, 30.0)

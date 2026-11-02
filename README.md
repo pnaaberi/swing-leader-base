@@ -91,7 +91,7 @@ Retain the respective notices and comply with the original terms. No blanket lic
 
 ## RSI panel
 
-**9 · RSI panel** draws a classic RSI chart in the empty space right of the last bar, at the bottom of the recent 120-bar price range: purple RSI line, dashed 70/30 and dotted 50 levels, a faint 30–70 band, mint fill above 70 and rose fill below 30. A label shows length, chart timeframe, current RSI and the next-higher timeframe's RSI from closed bars only (no repaint). History bars and panel height are adjustable; widen the chart's right margin if the panel is cut off.
+**11 · RSI panel** draws a classic RSI chart in the empty space right of the last bar, at the top of the recent 120-bar price range: purple RSI line, dashed 70/30 and dotted 50 levels, a faint 30–70 band, mint fill above 70 and rose fill below 30. A label shows length, chart timeframe, current RSI and the next-higher timeframe's RSI from closed bars only (no repaint). History bars and panel height are adjustable; widen the chart's right margin if the panel is cut off.
 
 | Chart |
 | Period / Smoothing | 7 / 20 |
@@ -150,7 +150,7 @@ Retain the respective notices and comply with the original terms. No blanket lic
 
 ## RSI panel
 
-**9 · RSI panel** draws a blocky RSI meter in the bottom-right corner (position selectable) with a small edge gap. Each column is one bar, oldest left; each block is 10 RSI points. Rose ≥ 70, peach 50–70, blue 30–50, mint ≤ 30; faint rows mark 70 and 30. The header shows length, chart timeframe, current RSI with a 3-bar slope arrow, and the next-higher timeframe's RSI from closed bars only (no repaint).
+**11 · RSI panel** draws a blocky RSI meter in the bottom-right corner (position selectable) with a small edge gap. Each column is one bar, oldest left; each block is 10 RSI points. Rose ≥ 70, peach 50–70, blue 30–50, mint ≤ 30; faint rows mark 70 and 30. The header shows length, chart timeframe, current RSI with a 3-bar slope arrow, and the next-higher timeframe's RSI from closed bars only (no repaint).
 
 | Chart | Auto length | Higher TF |
 |---|---|---|
