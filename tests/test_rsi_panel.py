@@ -10,8 +10,8 @@ PANEL = FULL.split("// ── RSI panel", 1)[1]
 class RsiPanelTests(unittest.TestCase):
     def test_panel_is_appended_last_with_four_inputs(self):
         inputs = re.findall(r"(?m)^(\w+) = input\.\w+\(", PANEL)
-        self.assertEqual(inputs, ["showRsiPanel", "rsiLenInput", "rsiPanelBars", "rsiPanelPos"])
-        self.assertIn("rsiPanelPos = input.string(position.bottom_right", PANEL)
+        self.assertEqual(inputs, ["showRsiPanel", "rsiLenInput", "rsiPanelBars", "rsiPanelHeight"])
+        self.assertIn("polyline.new(line_pts, line_color=RSI_LINE_COLOR", PANEL)
 
     def test_timeframe_auto_length_and_closed_htf(self):
         self.assertIn("rsiAutoLen = chartSeconds <= 300 ? 9 : chartSeconds <= 3600 ? 12 : chartSeconds <= 86400 ? 14 : 10", PANEL)
@@ -20,7 +20,7 @@ class RsiPanelTests(unittest.TestCase):
     def test_setup_rsi_untouched_and_two_panel_alerts(self):
         self.assertIn("rsi = ta.rsi(close, 14)", FULL)
         self.assertEqual(len(re.findall(r"(?m)^alertcondition\(showRsiPanel", PANEL)), 2)
-        self.assertNotIn(":=", PANEL)
+        self.assertNotIn("rsi :=", PANEL)
 
 
 if __name__ == "__main__":

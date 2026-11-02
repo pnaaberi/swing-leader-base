@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- RSI panel: replace the block table with a classic RSI line chart (70/50/30 levels, overbought/oversold fills, value label) drawn right of the last bar; the position input becomes panel height.
 - Add an RSI panel (input group 9, default bottom-right): 16 blocky RSI history columns (10 points per block, zone colors at 70/50/30), current value with 3-bar slope and closed higher-timeframe RSI. Auto length by chart timeframe: ≤5m 9, ≤1h 12, ≤1D 14, above 10. Adds four inputs (appended last) and two overbought/oversold alerts; existing calculations, inputs and alerts are unchanged. TradingView compilation and rendering require manual verification.
 - Docs: clarify range versus candle-profile data sources, per-module alert gates, configurable Bollinger defaults and display-only Market Bias transparency. No Pine changes.
 

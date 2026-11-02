@@ -931,61 +931,83 @@ alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange < 0,
 alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange > 0,
   'Bearish Trend Weakens', '{{exchange}}:{{ticker}}: Bearish Trend is now Weaker.')
 
-// ── RSI panel: blocky RSI history, bottom-right, timeframe-aware ──
+// ── RSI panel: classic RSI line with 70/50/30 levels, drawn bottom-right past the last bar ──
 const string G_RSI = "9 · RSI panel"
 showRsiPanel = input.bool(true, "RSI panel", group=G_RSI,
-     tooltip="Auto length: ≤5m 9, ≤1h 12, ≤1D 14, above 1D 10. Higher-timeframe RSI uses the next step up (closed bars only).")
+     tooltip="Drawn in the empty space right of the last bar; widen the chart's right margin if it is cut off. Auto length: ≤5m 9, ≤1h 12, ≤1D 14, above 1D 10. Higher-timeframe RSI uses the next step up (closed bars only).")
 rsiLenInput = input.int(0, "RSI length (0 = auto)", minval=0, maxval=50, group=G_RSI)
-rsiPanelBars = input.int(16, "History blocks", minval=6, maxval=30, group=G_RSI)
-rsiPanelPos = input.string(position.bottom_right, "Panel position",
-     options=[position.top_left, position.top_right, position.bottom_left, position.bottom_right], group=G_RSI)
+rsiPanelBars = input.int(40, "History bars", minval=10, maxval=150, group=G_RSI)
+rsiPanelHeight = input.int(22, "Panel height % of recent range", minval=10, maxval=50, group=G_RSI)
 
 rsiAutoLen = chartSeconds <= 300 ? 9 : chartSeconds <= 3600 ? 12 : chartSeconds <= 86400 ? 14 : 10
 rsiPLen = rsiLenInput > 0 ? rsiLenInput : rsiAutoLen
 rsiHtf = chartSeconds <= 300 ? "15" : chartSeconds <= 900 ? "60" : chartSeconds <= 3600 ? "240" : chartSeconds <= 14400 ? "D" : chartSeconds <= 86400 ? "W" : "M"
 rsiP = ta.rsi(close, rsiPLen)
 rsiHtfVal = request.security(syminfo.tickerid, rsiHtf, ta.rsi(close, rsiPLen)[1], lookahead=barmerge.lookahead_on)
+rsiRangeHi = ta.highest(high, 120)
+rsiRangeLo = ta.lowest(low, 120)
 
 tfLabel(string tf) =>
     s = timeframe.in_seconds(tf)
     s < 3600 ? str.tostring(s / 60) + "m" : s < 86400 ? str.tostring(s / 3600) + "h" : tf == "W" or tf == "1W" ? "1W" : tf == "M" or tf == "1M" ? "1M" : str.tostring(s / 86400) + "D"
 
-rsiZoneColor(float v) =>
-    v >= 70 ? roseColor : v <= 30 ? mintColor : v >= 50 ? peachColor : blueColor
+rsiY(float base, float span, float v) =>
+    base + span * v / 100
 
-const int RSI_ROWS = 10  // one block = 10 RSI points
-var table rsiTbl = table.new(rsiPanelPos, 32, RSI_ROWS + 3, frame_width=0, border_width=1,
-     border_color=color.new(chart.bg_color, 0))
+const color RSI_LINE_COLOR = #7E57C2
+const int RSI_GAP_BARS = 4
 
-if barstate.islast and showRsiPanel
-    table.clear(rsiTbl, 0, 0, 31, RSI_ROWS + 2)
-    n = rsiPanelBars
-    // header: length · chart TF value, HTF value, slope arrow
-    slope = rsiP - rsiP[3]
-    arrow = slope > 2 ? "▲" : slope < -2 ? "▼" : "▶"
-    hdr = "RSI " + str.tostring(rsiPLen) + " · " + tfLabel(timeframe.period) + "  " + str.tostring(rsiP, "#") + " " + arrow +
-         "   " + tfLabel(rsiHtf) + " " + (na(rsiHtfVal) ? "—" : str.tostring(rsiHtfVal, "#"))
-    table.cell(rsiTbl, 0, 0, hdr, text_size=size.tiny, text_color=chart.fg_color, text_halign=text.align_left,
-         bgcolor=color.new(chart.bg_color, GUIDE_BACKGROUND_T))
-    table.merge_cells(rsiTbl, 0, 0, n, 0)
-    // blocks: oldest left, newest right; filled up to the bar's RSI
-    for i = 0 to n - 1
-        v = rsiP[n - 1 - i]
-        for r = 0 to RSI_ROWS - 1
-            level = (RSI_ROWS - r) * 10  // 100 at top row
-            filled = not na(v) and v >= level - 5
-            zoneLine = level == 70 or level == 30
-            bg = filled ? color.new(rsiZoneColor(v), i == n - 1 ? 0 : 25) : color.new(chart.fg_color, zoneLine ? 88 : 95)
-            table.cell(rsiTbl, i, r + 1, "", width=0.7, height=0.9, bgcolor=bg)
-    // scale column
-    for r = 0 to RSI_ROWS - 1
-        level = (RSI_ROWS - r) * 10
-        table.cell(rsiTbl, n, r + 1, level == 70 or level == 30 or level == 50 ? str.tostring(level) : "",
-             text_size=size.tiny, text_color=color.new(chart.fg_color, GUIDE_MUTED_TEXT_T), height=0.9,
-             bgcolor=color.new(chart.bg_color, 100))
-    // spacing from chart edges
-    table.cell(rsiTbl, n + 1, 0, "", width=2, bgcolor=color.new(chart.bg_color, 100))
-    table.cell(rsiTbl, 0, RSI_ROWS + 1, "", height=3, bgcolor=color.new(chart.bg_color, 100))
+var array<polyline> rsiPolys = array.new<polyline>()
+var box rsiBand = na
+var label rsiLabel = na
+
+if barstate.islast
+    for p in rsiPolys
+        p.delete()
+    rsiPolys.clear()
+    rsiBand.delete()
+    rsiLabel.delete()
+    if showRsiPanel and not na(rsiP)
+        n = rsiPanelBars
+        x0 = bar_index + RSI_GAP_BARS
+        h = (rsiRangeHi - rsiRangeLo) * rsiPanelHeight / 100
+        y0 = rsiRangeLo
+        // 30–70 band and frame levels
+        rsiBand := box.new(x0, rsiY(y0, h, 70), x0 + n - 1, rsiY(y0, h, 30), border_color=na, bgcolor=color.new(RSI_LINE_COLOR, 92))
+        for lv in array.from(70.0, 50.0, 30.0)
+            pts = array.from(chart.point.from_index(x0, rsiY(y0, h, lv)), chart.point.from_index(x0 + n - 1, rsiY(y0, h, lv)))
+            rsiPolys.push(polyline.new(pts, line_color=color.new(chart.fg_color, lv == 50 ? 75 : 55),
+                 line_style=lv == 50 ? line.style_dotted : line.style_dashed))
+        // overbought / oversold fills: closed shapes between the line and 70 / 30
+        for side = 0 to 1
+            lim = side == 0 ? 70.0 : 30.0
+            fillCol = side == 0 ? color.new(mintColor, 35) : color.new(roseColor, 35)
+            run = array.new<chart.point>()
+            for i = 0 to n
+                v = i < n ? rsiP[n - 1 - i] : na
+                inside = not na(v) and (side == 0 ? v > lim : v < lim)
+                if inside
+                    run.push(chart.point.from_index(x0 + i, rsiY(y0, h, v)))
+                else if run.size() > 0
+                    firstX = run.first().index
+                    lastX = run.last().index
+                    run.push(chart.point.from_index(lastX, rsiY(y0, h, lim)))
+                    run.push(chart.point.from_index(firstX, rsiY(y0, h, lim)))
+                    rsiPolys.push(polyline.new(run, closed=true, line_color=color.new(fillCol, 100), fill_color=fillCol))
+                    run := array.new<chart.point>()
+        // RSI line
+        line_pts = array.new<chart.point>()
+        for i = 0 to n - 1
+            v = rsiP[n - 1 - i]
+            if not na(v)
+                line_pts.push(chart.point.from_index(x0 + i, rsiY(y0, h, v)))
+        rsiPolys.push(polyline.new(line_pts, line_color=RSI_LINE_COLOR, line_width=2))
+        // value label at the right end
+        zoneCol = rsiP >= 70 ? mintColor : rsiP <= 30 ? roseColor : RSI_LINE_COLOR
+        txt = "RSI " + str.tostring(rsiPLen) + " " + tfLabel(timeframe.period) + "  " + str.tostring(rsiP, "#.0") +
+             "\n" + tfLabel(rsiHtf) + "  " + (na(rsiHtfVal) ? "—" : str.tostring(rsiHtfVal, "#.0"))
+        rsiLabel := label.new(x0 + n + 1, rsiY(y0, h, rsiP), txt, style=label.style_label_left, size=size.small,
+             color=color.new(zoneCol, 15), textcolor=BADGE_TEXT_COLOR)
 
 alertcondition(showRsiPanel and ta.crossover(rsiP, 70), "RSI panel: enters overbought", "{{ticker}} RSI crossed above 70")
 alertcondition(showRsiPanel and ta.crossunder(rsiP, 30), "RSI panel: enters oversold", "{{ticker}} RSI crossed below 30")
