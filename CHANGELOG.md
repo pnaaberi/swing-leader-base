@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Replace the RSI line panel and `rsi-pane.pine` with a compact bottom-right RSI gauge: current value, zone word and a 30/70 position bar. Removes the RSI panel alerts.
 - Add `rsi-pane.pine`, a separate RSI pane indicator; turn the in-chart RSI panel off by default.
 - RSI panel: move to the top of the recent range and rename its input group to 11 (9 is Market Bias).
 - RSI panel: replace the block table with a classic RSI line chart (70/50/30 levels, overbought/oversold fills, value label) drawn right of the last bar; the position input becomes panel height.
