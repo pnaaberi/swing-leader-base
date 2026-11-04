@@ -89,6 +89,6 @@ Version 0.3.3 is a display-only polish of signal labels, EMA/Bias/Bollinger hier
 
 Retain the respective notices and comply with the original terms. No blanket license or additional relicensing permission is asserted for the combined script.
 
-## RSI gauge
+## RSI gauge removal
 
-**11 · RSI gauge** shows a small gauge in the bottom-right corner (position selectable): the current RSI value with Oversold / Neutral / Overbought, and a 20-cell bar (5 RSI points each) whose highlighted cell marks where RSI sits. Cells below 30 are tinted mint, above 70 rose, with 30 and 70 labeled underneath. Auto length by chart timeframe: ≤5m 9, ≤1h 12, ≤1D 14, above 1D 10; set **RSI length** above 0 to override. The setup score keeps its own fixed RSI 14. No RSI line or alerts are drawn.
+The separate RSI gauge and its three settings have been removed. The setup score still uses its original RSI 14 calculation. Use a fresh indicator instance after updating. Whether this resolves the runtime warning requires a TradingView check.

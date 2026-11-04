@@ -930,38 +930,3 @@ alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange < 0,
 
 alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange > 0,
   'Bearish Trend Weakens', '{{exchange}}:{{ticker}}: Bearish Trend is now Weaker.')
-
-// ── RSI gauge: current RSI value and where it sits between oversold (30) and overbought (70) ──
-const string G_RSI = "11 · RSI gauge"
-showRsiPanel = input.bool(true, "RSI gauge", group=G_RSI,
-     tooltip="Auto length: ≤5m 9, ≤1h 12, ≤1D 14, above 1D 10.")
-rsiLenInput = input.int(0, "RSI length (0 = auto)", minval=0, maxval=50, group=G_RSI)
-rsiPanelPos = input.string(position.bottom_right, "Gauge position",
-     options=[position.top_left, position.top_right, position.bottom_left, position.bottom_right], group=G_RSI)
-
-rsiAutoLen = chartSeconds <= 300 ? 9 : chartSeconds <= 3600 ? 12 : chartSeconds <= 86400 ? 14 : 10
-rsiPLen = rsiLenInput > 0 ? rsiLenInput : rsiAutoLen
-rsiP = ta.rsi(close, rsiPLen)
-
-const int RSI_CELLS = 20  // 5 RSI points per cell
-var table rsiTbl = table.new(rsiPanelPos, RSI_CELLS + 1, 3, frame_width=0, border_width=0)
-
-if barstate.islast
-    table.clear(rsiTbl, 0, 0, RSI_CELLS, 2)
-    if showRsiPanel and not na(rsiP)
-        zone = rsiP >= 70 ? "Overbought" : rsiP <= 30 ? "Oversold" : "Neutral"
-        zoneCol = rsiP >= 70 ? roseColor : rsiP <= 30 ? mintColor : blueColor
-        table.cell(rsiTbl, 0, 0, "RSI " + str.tostring(rsiP, "#.0") + " · " + zone,
-             text_size=size.small, text_color=chart.fg_color, text_halign=text.align_left,
-             bgcolor=color.new(chart.bg_color, GUIDE_BACKGROUND_T))
-        table.merge_cells(rsiTbl, 0, 0, RSI_CELLS - 1, 0)
-        marker = math.min(RSI_CELLS - 1, int(rsiP / (100 / RSI_CELLS)))
-        for i = 0 to RSI_CELLS - 1
-            mid = (i + 0.5) * 100 / RSI_CELLS
-            base = mid >= 70 ? roseColor : mid <= 30 ? mintColor : chart.fg_color
-            bg = i == marker ? zoneCol : color.new(base, mid >= 70 or mid <= 30 ? 70 : 90)
-            table.cell(rsiTbl, i, 1, "", width=0.6, height=1.2, bgcolor=bg)
-            table.cell(rsiTbl, i, 2, i == 6 ? "30" : i == 14 ? "70" : "", text_size=size.tiny,
-                 text_color=color.new(chart.fg_color, GUIDE_MUTED_TEXT_T), height=1.5)
-        // spacing from the chart edge
-        table.cell(rsiTbl, RSI_CELLS, 1, "", width=1.5)

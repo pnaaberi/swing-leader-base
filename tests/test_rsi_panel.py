@@ -1,25 +1,18 @@
-"""Source-only checks for the appended RSI panel; these do not compile or render Pine."""
+"""Source contracts for RSI gauge removal; these do not execute Pine."""
 import re
 import unittest
 from pathlib import Path
 
 FULL = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text()
-PANEL = FULL.split("// ── RSI gauge", 1)[1]
 
 
-class RsiPanelTests(unittest.TestCase):
-    def test_gauge_is_appended_last_with_three_inputs(self):
-        inputs = re.findall(r"(?m)^(\w+) = input\.\w+\(", PANEL)
-        self.assertEqual(inputs, ["showRsiPanel", "rsiLenInput", "rsiPanelPos"])
-        self.assertIn("position.bottom_right", PANEL)
+class RsiRemovalTests(unittest.TestCase):
+    def test_gauge_and_its_inputs_are_removed(self):
+        self.assertNotRegex(FULL, r"\b(?:G_RSI|showRsiPanel|rsiLenInput|rsiPanelPos|rsiTbl|rsiP|RSI_CELLS)\b")
 
-    def test_timeframe_auto_length(self):
-        self.assertIn("rsiAutoLen = chartSeconds <= 300 ? 9 : chartSeconds <= 3600 ? 12 : chartSeconds <= 86400 ? 14 : 10", PANEL)
-
-    def test_setup_rsi_untouched_and_no_gauge_alerts(self):
+    def test_setup_rsi_and_existing_alerts_remain(self):
         self.assertIn("rsi = ta.rsi(close, 14)", FULL)
-        self.assertNotIn("alertcondition(", PANEL)
-        self.assertNotIn("rsi :=", PANEL)
+        self.assertEqual(len(re.findall(r"(?m)^alertcondition\(", FULL)), 17)
 
 
 if __name__ == "__main__":

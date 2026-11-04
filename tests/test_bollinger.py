@@ -4,8 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-# The appended RSI panel (0.4.0) is checked in test_rsi_panel.py; protected contracts cover the rest.
-SOURCE = (ROOT / "swing-leader-base.pine").read_text().split("\n\n// ── RSI gauge", 1)[0] + "\n"
+SOURCE = (ROOT / "swing-leader-base.pine").read_text()
 BANDS = SOURCE.split('\nconst string G_BB = "10 · Bollinger Bands"', 1)[1].split('\nmb_o = ', 1)[0]
 PLOTS = re.findall(r"(?m)^(?:bb\w+ = )?plot\((.+)$", BANDS)
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove the RSI gauge and its three inputs. Preserve the original setup RSI, all other calculations and alerts. Runtime improvement is not yet measured in TradingView.
+
 - Replace the RSI line panel and `rsi-pane.pine` with a compact bottom-right RSI gauge: current value, zone word and a 30/70 position bar. Removes the RSI panel alerts.
 - Add `rsi-pane.pine`, a separate RSI pane indicator; turn the in-chart RSI panel off by default.
 - RSI panel: move to the top of the recent range and rename its input group to 11 (9 is Market Bias).

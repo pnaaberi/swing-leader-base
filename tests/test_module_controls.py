@@ -3,8 +3,7 @@ import unittest
 from pathlib import Path
 
 
-# The appended RSI panel (0.4.0) is checked in test_rsi_panel.py; protected contracts cover the rest.
-SOURCE = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text().split("\n\n// ── RSI gauge", 1)[0] + "\n"
+SOURCE = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text()
 MASTERS = {
     "showSLB": "true", "showMAs": "true", "showVPVR": "true",
     "showSR": "true", "showFibZones": "false", "showBOS": "false",
