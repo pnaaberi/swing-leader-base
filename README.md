@@ -1,6 +1,6 @@
-# Swing Leader Base + Market Bias
+# Swing Leader Base (ALL-IN-1)
 
-TradingView Pine Script v6 overlay combining swing setups, a custom volume profile, support/resistance zones, Market Bias and Bollinger Bands.
+TradingView Pine Script v6 overlay combining swing setups, a custom volume profile, support/resistance zones, Market Bias, Bollinger Bands, whale-volume dots, Fibonacci zones, a fundamentals table and automatic trendlines. Since 0.4.0 the indicator's on-chart name is **ALL-IN-1**.
 
 ## Use
 
@@ -15,6 +15,17 @@ Nine checkboxes cover SLB signals/levels/guide, moving averages, the custom volu
 The SLB master gates its signals, stop/target levels, guide, bar tint and five entry/exit alerts (Buy, Breakout, Pullback, Stop and Target); moving averages are independent. Structure-break alerts follow the Structure breaks switch, and the four order-block formation/invalidation alerts follow Support / resistance in Volume order blocks mode, independently of the SLB master. The Market Bias master hides its ribbon, optional HA candles and data-window values, and gates its six alert conditions. The custom-profile switch cannot control a separate native TradingView VRVP.
 
 When upgrading a version that changes inputs, use a fresh instance or reset inputs to source defaults, then reapply personal overrides. Existing TradingView alerts retain their own settings snapshot; disable/recreate them separately after changing module switches.
+
+## Version 0.4.0 modules
+
+These have their own on/off inputs in their groups (not in **0 · Indicators**); all are on by default.
+
+- **11 · Whale dots** marks candles whose volume exceeds the recent average by the chosen sigma (tiers at +0, +1.5 and +3.0) and whose body shows an estimated 60% buy or sell share. The share comes from candle shape, not order flow. Daily and higher charts use the bar lookback; intraday charts compare with the same time of day over the previous 20 sessions (at least 10 needed). Each ball uses six labels; the whale budget is clamped to what remains of the 500-label limit after **Signal labels to retain**.
+- **12 · Fundamentals** shows a table for stocks and depositary receipts from TradingView's `request.financial` and `syminfo` data. Missing values show a dash. Colors are simple thresholds, not ratings.
+- **13 · Trendlines** draws up to two support and two resistance lines through confirmed swing points where no later candle body crossed the line (wicks may), preferring lines with more touches, plus an optional dashed short-term set. Lines far from price are skipped.
+- **Fibonacci zones** (still off by default via **0 · Indicators**) now shade the golden pocket, a 0.786–0.826 zone, a mirrored down-swing sell zone and 1.272–1.618 targets, with optional labels.
+
+The custom volume profile now sits on the chart's right edge. Set **Chart right margin (bars)** to match **Chart settings → Canvas → Margins → Right**; with no empty space it overlays the last candles or hides, as selected.
 
 ## Visual hierarchy
 
@@ -64,7 +75,7 @@ The Bollinger drawing block runs before Market Bias. Its customizable fill is be
 
 ## Checks
 
-Run `python3 -B -m unittest discover -s tests -v` for source-contract regressions. These check integration, style, input bounds and hide behavior; they do not execute Pine. Compile in TradingView, inspect the three lines/fill, then toggle the overlay off to check the chart. The original source is retained in Git for rollback.
+Run `python3 -B -m unittest discover -s tests -v` for source-contract regressions (31 tests). These check integration, style, input bounds and hide behavior; they do not execute Pine. Compile in TradingView, inspect the three lines/fill, then toggle the overlay off to check the chart. The original source is retained in Git for rollback.
 
 For visual acceptance, use a fresh/reset instance on the same symbol, timeframe and zoom as the previous revision. Check light and dark backgrounds; all nine switches and all-off; Compact/Checklist/Off guides with candle-profile warnings; both S/R modes as new zones form or invalidate; profile/VA/POC labels; and active stop/target visibility. Test insufficient history and a candle-profile timeframe equal to or above the chart timeframe: retain the loading/invalid-timeframe explanation, without overlapping guide rows. These are manual TradingView checks, not results supplied by the source tests. Roll back to the previous Git revision and restore prior saved settings if needed.
 
@@ -76,7 +87,7 @@ Run `python3 -B tools/recover_swatch.py /path/to/private-config.json`. The JSON 
 
 ## Status
 
-Version 0.3.3 is a display-only polish of signal labels, EMA/Bias/Bollinger hierarchy, zone recency, profile tags and the guide. Setup/risk calculations, zone detection, all 17 alerts, input ordering and drawing budgets are preserved. Source-contract checks do not prove native execution; TradingView compilation, color pickers, light/dark chart rendering and saved-instance migration remain unverified.
+Version 0.4.0 adds whale dots, a fundamentals table, automatic trendlines and new Fibonacci zones, moves the custom profile to the chart's right edge and switches Market Bias trend alerts to zero crossings (see CHANGELOG). Inputs grow from 104 to 145 with some inserted mid-list, so reset inputs or use a fresh instance. Setup/risk calculations, candle profiles and the 17 alert conditions are preserved. Source-contract checks do not prove native execution; TradingView compilation and rendering of 0.4.0 remain unverified.
 
 ## Repository protection
 
@@ -86,6 +97,7 @@ Version 0.3.3 is a display-only polish of signal labels, EMA/Bias/Bollinger hier
 
 - Volume order-block logic: adapted from © LuxAlgo, [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), including its noncommercial and share-alike conditions.
 - Market Bias: adapted from © Professeur_X, [Mozilla Public License 2.0](https://mozilla.org/MPL/2.0/).
+- Whale-dot volume tiers: idea adapted from the HK whale detector in "Fabio + Whale + VRVP" by © saivivek0192 (TradingView). That source states no explicit license; this repository's whale code is a rewrite and credits the original.
 
 Retain the respective notices and comply with the original terms. No blanket license or additional relicensing permission is asserted for the combined script.
 

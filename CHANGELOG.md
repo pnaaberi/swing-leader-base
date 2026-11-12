@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.4.0
+
+- Rename the indicator to **ALL-IN-1** (title and short title). Saved chart instances keep working but show the new name.
+- Add **11 · Whale dots**: 3D-style balls on high-volume candles in three sigma tiers, with an estimated 60/40 buy or sell share from candle shape (not order flow). Intraday charts compare each bar with the same time of day over the previous 20 sessions. The whale label budget is clamped to what the 500-label limit leaves after the signal label pool. Detector adapted from saivivek0192's "Fabio + Whale + VRVP".
+- Add **12 · Fundamentals**: a bottom-right table for stocks and depositary receipts (market cap, revenue and growth, margins, free cash flow, P/E · P/S, debt/equity, net cash, analyst target and ratings, next earnings).
+- Add **13 · Trendlines**: automatic support/resistance trendlines through swing points that no candle body has crossed, plus a dashed short-term set.
+- Fibonacci: use the latest swing low → swing high leg (pivot length = BOS pivot left/right) and hide it once the swing high is older than the renamed **Max swing age**. Add a 0.786–0.826 zone, a mirrored down-swing sell zone, 1.272–1.618 target areas and zone labels. Remove the six Fibonacci level plots and the old 1.272–1.618 sell box.
+- Volume profile: sit the histogram on the chart's right edge (new **Chart right margin**, **Min empty bars**, **When there is no empty space** and **Width when overlaying candles** inputs); with no empty space it overlays the last candles or hides. Width input renamed **Max histogram width**. VAH/POC/VAL labels move to the histogram's left end.
+- Order blocks: a reconfirmed level replaces overlapping older zones, and stored zones are capped at **Zones per side**.
+- Stop/target lines also draw on the bar where the stop or target is hit.
+- Market Bias trend-switch alerts now fire on the bias oscillator's zero crossings (`ta.crossover/crossunder(mb_osc_bias, 0)`).
+- Defaults/bounds: **Setup score min** minimum is now 5 (the floor every trigger already meets); **Signal labels to retain** default 150 (was 250). New tooltips explain both.
+- Inputs grow from 104 to 145, and some are inserted mid-list: reset inputs or add a fresh instance after updating. Setup/risk calculations, candle profiles and the 17 alert conditions' text are unchanged. TradingView compilation and rendering of the new modules require manual verification.
+
 - Remove the RSI gauge and its three inputs. Preserve the original setup RSI, all other calculations and alerts. Runtime improvement is not yet measured in TradingView.
 
 - Replace the RSI line panel and `rsi-pane.pine` with a compact bottom-right RSI gauge: current value, zone word and a 30/70 position bar. Removes the RSI panel alerts.

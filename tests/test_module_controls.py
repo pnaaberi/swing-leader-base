@@ -15,7 +15,7 @@ class ModuleControlTests(unittest.TestCase):
     def test_all_nine_switches_are_first_and_unique(self):
         inputs = re.findall(r"(?m)^(\w+) = (?:mb_forceCtf\()?input\.\w+\(", SOURCE)
         self.assertEqual(inputs[:9], list(MASTERS))
-        self.assertEqual(len(inputs), 104)
+        self.assertEqual(len(inputs), 145)
         for name, default in MASTERS.items():
             declarations = re.findall(
                 rf"(?ms)^{name} = input\.bool\((.*?)\)\s*$", SOURCE,
@@ -35,8 +35,10 @@ class ModuleControlTests(unittest.TestCase):
     def test_slb_off_hides_guide_levels_tint_and_conditions(self):
         for name in ("buySignal", "stopExit", "targetExit"):
             self.assertIn(f"{name} = showSLB and ", SOURCE)
-        for price in ("stopPrice", "targetPrice"):
-            self.assertIn(f"plot(showSLB and showLevels and inTrade ? {price} : na", SOURCE)
+        for price, level in (("stopPrice", "exitStopLevel"), ("targetPrice", "exitTargetLevel")):
+            self.assertIn(
+                f"plot(showSLB and showLevels ? (inTrade ? {price} : stopExit or targetExit ? {level} : na) : na",
+                SOURCE)
         self.assertIn('if showSLB and guideMode != "Off"', SOURCE)
         self.assertIn("barcolor(showSLB and showBarTint ?", SOURCE)
         self.assertIn("fastPlot = plot(showMAs ?", SOURCE)
@@ -49,8 +51,8 @@ class ModuleControlTests(unittest.TestCase):
         alerts = re.findall(r"(?m)^alertcondition\(([^,\n]+),", SOURCE)
         self.assertEqual(len(alerts), 17)
         self.assertEqual(sum(value.startswith("mb_enabled and ") for value in alerts), 6)
-        self.assertIn("mb_bullTrendSwitch = ta.change(mb_biasSignChange > 0)", SOURCE)
-        self.assertIn("mb_bearTrendSwitch = ta.change(mb_biasSignChange < 0)", SOURCE)
+        self.assertIn("mb_bullTrendSwitch = ta.crossover(mb_osc_bias, 0)", SOURCE)
+        self.assertIn("mb_bearTrendSwitch = ta.crossunder(mb_osc_bias, 0)", SOURCE)
 
     def test_existing_zone_and_structure_off_gates_remain(self):
         self.assertIn('obModeActive = showSR and srMode == "Volume order blocks"', SOURCE)

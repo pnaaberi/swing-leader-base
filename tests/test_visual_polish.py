@@ -6,15 +6,15 @@ from pathlib import Path
 
 
 SOURCE = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text()
-# Exact protected regions from v0.3.2 (fc843b1), independent of local Git history.
+# Exact protected regions as of 0.4.0 (core, candle profiles and alerts unchanged since v0.3.2).
 BASELINE_HASHES = {
     "core": "c1ed1f6cc5fbc451c3c9684d07c21dfeddcf484cc15222938cbc4015a10164a3",
-    "order_blocks": "55c42d1d19cca032fb1cc9934eb250297911d0c6fdbc2e39a2637689695ce268",
-    "market_bias": "13a6d035aa6f4369655a9bdbdcbc2d13a1e3c9998ea39931eda325fce24169a4",
+    "order_blocks": "355958d7c6583320cb536c46fa960daf746a5a5dad3aaf8901b4cedeaf6ba9b2",
+    "market_bias": "55df68cf31fbd23391d176f8e8905fbf928da29386b1c4248b6434e6e5185313",
     "candle_profiles": "0dca60dd905e21871a3d86d23b0118f5fdb5ea192ce8b930a16cb57b1d6837a7",
-    "fibonacci": "13ada7e93f73d31d253c836f7f45e965e8a4e6be360e4f910befef145868f811",
+    "fibonacci": "13cc58050511ab90d43d9ae44369b578c14fe683070965911f93ab2d8d4da1aa",
     "alerts": "9d2d06a7bd92a6c1df3769453fe72258da3e6787050603461117cabef9e1eca1",
-    "input_order": "f7cf2ee2cda7e46ed72bfa1af5c52d3e77f6a7c614d765e51e6012d1f6655002",
+    "input_order": "42591233391bd35c7692c1f65140d00f74e40b65b36d6a6122c4e84775a3c1df",
 }
 
 
@@ -23,10 +23,10 @@ def protected_hashes(source):
         "core": source.split("emaFast = ta.ema", 1)[1].split("labelGap = ", 1)[0],
         "order_blocks": source.split("obUpper = ", 1)[1].split(
             "\nif barstate.islast\n    clearBoxes(obDrawBoxes)", 1)[0],
-        "market_bias": source.split("mb_o = ta.ema", 1)[1],
+        "market_bias": source.split("mb_o = ta.ema", 1)[1].split("\n// Detector adapted from the HK whale", 1)[0],
         "candle_profiles": source.split("requestedProfiles = ", 1)[1].split(
             "\nsetupDataReady = ", 1)[0],
-        "fibonacci": source.split("fibHigh = ", 1)[1].split("plot(showFibZones", 1)[0],
+        "fibonacci": source.split("fibHigh = ", 1)[1].split("var box fibBuyBox", 1)[0],
         "alerts": "\n".join(re.findall(r"(?m)^alertcondition\([\s\S]*?\)\s*$", source)),
         "input_order": "\n".join(re.findall(
             r"(?m)^(\w+) = (?:mb_forceCtf\()?input\.\w+\(", source)),
@@ -65,7 +65,7 @@ class VisualPolishTests(unittest.TestCase):
     def test_readable_markers_and_narrower_profile(self):
         self.assertIn('markerFontSize = input.int(7, "Signal font size", minval=1, maxval=12', SOURCE)
         self.assertIn('showRibbon = input.bool(true, "EMA cloud ribbon"', SOURCE)
-        self.assertIn('vpWidthPct = input.float(13.0, "Histogram width % of range", minval=5, maxval=40', SOURCE)
+        self.assertIn('vpWidthPct = input.float(13.0, "Max histogram width % of range", minval=5, maxval=40', SOURCE)
         self.assertIn("vpTransparency + PROFILE_OUTSIDE_FADE", SOURCE)
         for short, full in (("VAH", "Value area high"), ("VAL", "Value area low")):
             self.assertRegex(SOURCE, rf'profileLevel\([^\n]+"{short}"')

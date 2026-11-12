@@ -7,7 +7,7 @@ from pathlib import Path
 SOURCE = (Path(__file__).resolve().parents[1] / "swing-leader-base.pine").read_text()
 SHOWN_DEFAULTS = {
     "Minimal display": {
-        "showTradeMarkers": True, "markerFontSize": 7, "markerKeep": 250,
+        "showTradeMarkers": True, "markerFontSize": 7, "markerKeep": 150,
         "markerGap": 0.22, "showMAs": True, "showRibbon": True,
         "showLevels": True, "showBarTint": False, "guideMode": "Compact",
         "guidePosition": "position.top_left",

@@ -1,6 +1,6 @@
 //@version=6
 
-indicator("Swing Leader Base · VPVR + Order Block S/R + Market Bias", "SLB + MB", overlay=true, dynamic_requests=false,
+indicator("ALL-IN-1", "ALL-IN-1", overlay=true, dynamic_requests=false,
      max_boxes_count=500, max_lines_count=100, max_labels_count=500, max_bars_back=2000)
 
 const string G_CONTROLS = "0 · Indicators"
@@ -26,7 +26,6 @@ const string G_SR = "6 · Support and resistance"
 const string G_EXTRA = "7 · Optional overlays"
 const string G_CANDLE = "8 · Optional candle profiles"
 
-// Display hierarchy only: recency is not a zone-strength or confidence score.
 const int ZONE_RECENT_BORDER_T = 55
 const int ZONE_OLDER_BORDER_T = 85
 const int ZONE_RECENT_TEXT_T = 20
@@ -44,7 +43,8 @@ leaderLookback = input.int(60, "Leader bars", minval=20, maxval=1000, group=G_SE
 minMovePct = input.float(30.0, "Leader move min %", minval=5, group=G_SETUP)
 maxDepthPct = input.float(28.0, "Base depth max %", minval=5, group=G_SETUP)
 maxExtension = input.float(12.0, "EMA extension max %", minval=2, group=G_SETUP)
-minScore = input.int(5, "Setup score min", minval=3, maxval=7, group=G_SETUP)
+minScore = input.int(5, "Setup score min", minval=5, maxval=7, group=G_SETUP,
+     tooltip="5 is always met once a trigger forms: trend alignment gives 4 points and the trigger bar's close above the fast EMA the 5th. 6 also needs RSI > 50 or MACD histogram > 0 on the signal bar; 7 needs both.")
 requireHTF = input.bool(true, "Require confirmed weekly trend", group=G_SETUP,
      tooltip="Uses the previous completed week. With this enabled, entries require a chart timeframe of one week or lower.")
 
@@ -58,7 +58,8 @@ showTradeMarkers = input.bool(true, "Full-word signal labels", group=G_STYLE)
 markerFontSize = input.int(7, "Signal font size", minval=1, maxval=12, group=G_STYLE,
      tooltip="1 is Pine v6's smallest positive numeric text size and is extremely small. About 7 matches the usual tiny label preset.")
 
-markerKeep = input.int(250, "Signal labels to retain", minval=20, maxval=350, group=G_STYLE)
+markerKeep = input.int(150, "Signal labels to retain", minval=20, maxval=350, group=G_STYLE,
+     tooltip="Breakout, Pullback, Stop, Target and structure-break labels share this pool. It also shares the 500-label limit with the whale balls: the whale budget is clamped to what remains.")
 markerGap = input.float(0.22, "Signal spacing × ATR", minval=0.05, maxval=2.0, step=0.05, group=G_STYLE)
 showRibbon = input.bool(true, "EMA cloud ribbon", group=G_STYLE)
 showLevels = input.bool(true, "Active stop / target", group=G_STYLE)
@@ -73,7 +74,7 @@ roseColor = input.color(color.rgb(237, 177, 186), "Stop / resistance", group=G_S
 lilacColor = input.color(color.rgb(205, 184, 230), "Target / POC", group=G_STYLE, inline="c2")
 peachColor = input.color(color.rgb(236, 208, 174), "Slow EMA / Fibonacci", group=G_STYLE)
 useNativeVRVP = input.bool(false, "Use native TradingView VRVP instead of custom", group=G_VP,
-     tooltip="Off = draw this script's full custom VPVR in the blank area to the right of the visible candles. On = hide the custom histogram/POC/VA and use TradingView's native Visible Range Volume Profile separately.")
+     tooltip="Off = draw this script's full custom VPVR on the chart's right edge, beside the visible candles. On = hide the custom histogram/POC/VA and use TradingView's native Visible Range Volume Profile separately.")
 
 vpMode = input.string("Visible range", "Range", options=["Visible range", "Last N bars"], group=G_VP)
 vpBars = input.int(250, "N bars", minval=30, maxval=1500, group=G_VP)
@@ -81,9 +82,16 @@ vpMaxBars = input.int(1500, "Visible-range bar cap", minval=100, maxval=1500, gr
      tooltip="When more bars are visible, only the newest capped number are profiled. The profile caption reports this.")
 
 vpRows = input.int(64, "Price rows", minval=12, maxval=100, group=G_VP)
-vpWidthPct = input.float(13.0, "Histogram width % of range", minval=5, maxval=40, group=G_VP)
+vpWidthPct = input.float(13.0, "Max histogram width % of range", minval=5, maxval=40, group=G_VP,
+     tooltip="Upper limit for the histogram width, as a share of the profiled bars. It never grows wider than the empty space beside the candles.")
 vpRightGapBars = input.int(3, "Histogram gap from candles (bars)", minval=1, maxval=100, group=G_VP,
-     tooltip="Moves the custom VPVR completely into blank space to the right of the rightmost profiled candle. Pine cannot pixel-dock to the viewport edge, so this bar gap controls the separation.")
+     tooltip="Empty bars kept between the last candle and the left end of the histogram.")
+vpMarginBars = input.int(40, "Chart right margin (bars)", minval=0, maxval=450, group=G_VP,
+     tooltip="Empty bars right of the latest candle. The histogram's right end sits here, on the chart's right edge. The VRVP margin sync userscript keeps this equal to the live chart margin while you pan and zoom. Without it, set it to Chart settings > Canvas > Margins > Right.")
+vpMinFree = input.int(6, "Min empty bars to sit beside candles", minval=1, maxval=100, group=G_VP)
+vpNoSpace = input.string("Overlay last candles", "When there is no empty space", options=["Overlay last candles", "Hide"], group=G_VP,
+     tooltip="Scrolled back into history there is no empty space on the right. Overlay draws the histogram over the last visible candles at the right edge; Hide removes it until empty space returns.")
+vpOverlayPct = input.float(25.0, "Width when overlaying candles %", minval=5, maxval=60, group=G_VP)
 
 vpAllocation = input.string("High-low overlap", "Volume allocation",
      options=["High-low overlap", "Close only"], group=G_VP,
@@ -119,7 +127,8 @@ obResistanceMid = input.color(color.new(#EDB1BA, 40), "Resistance midpoint", gro
 srLeft = input.int(5, "Pivot left", minval=2, maxval=20, group=G_SR, inline="pivot")
 srRight = input.int(5, "right", minval=2, maxval=20, group=G_SR, inline="pivot")
 srHalfWidth = input.float(0.30, "Zone half-width × pivot ATR", minval=0.05, maxval=2.0, step=0.05, group=G_SR)
-srKeep = input.int(3, "Zones per side", minval=1, maxval=6, group=G_SR)
+srKeep = input.int(3, "Zones per side", minval=1, maxval=6, group=G_SR,
+     tooltip="Newest zones kept and drawn per side, in both zone-source modes.")
 srExtend = input.int(30, "Zone text anchor offset (bars)", minval=1, maxval=100, group=G_SR,
      tooltip="Sets the finite right coordinate for zone text. Price zones extend right without a fixed bar limit. Text itself is not viewport-docked.")
 
@@ -128,7 +137,8 @@ srTransparency = input.int(92, "Zone transparency", minval=75, maxval=98, group=
 srLabels = input.bool(true, "Write Support / Resistance", group=G_SR,
      tooltip="Both modes start zones at confirmation. Original pivots invalidate on a closing-price break; order blocks use the selected Close/Wick method. Fill colors use Breakout / support and Stop / resistance in Minimal display.")
 
-fibLookback = input.int(80, "Fib bars", minval=20, maxval=300, group=G_EXTRA)
+fibLookback = input.int(80, "Max swing age (bars)", minval=20, maxval=300, group=G_EXTRA,
+     tooltip="The automatic Fibonacci uses the latest swing low to swing high move (pivot length = BOS pivot left/right). It is hidden once the swing high is older than this.")
 fibForward = input.int(20, "Fib forward bars", minval=1, maxval=100, group=G_EXTRA)
 bosLeft = input.int(5, "BOS pivot left", minval=2, maxval=20, group=G_EXTRA, inline="bos")
 bosRight = input.int(5, "right", minval=2, maxval=20, group=G_EXTRA, inline="bos")
@@ -183,7 +193,7 @@ profileLevel(int leftBar, int rightBar, float price, string words, color pastel,
          color=color.new(pastel, 10), width=dotted ? 1 : 2,
          style=dotted ? line.style_dotted : line.style_solid))
     if vpShowLabels
-        array.push(vpLabels, label.new(rightBar, price, words + " " + str.tostring(price, format.mintick),
+        array.push(vpLabels, label.new(leftBar, price, words + " " + str.tostring(price, format.mintick),
              xloc=xloc.bar_index, style=label.style_label_right,
              color=color.new(pastel, 12), textcolor=BADGE_TEXT_COLOR, size=size.tiny,
              tooltip=(words == "VAH" ? "Value area high" : words == "VAL" ? "Value area low" : "Point of control") +
@@ -279,7 +289,6 @@ if showTradeMarkers and targetExit
     signalLabel(high + labelGap, "Target", lilacColor, false,
          "Target level touched: " + str.tostring(exitTargetLevel, format.mintick) + ". Not an execution price.")
 
-// The slow EMA is the cloud's defined outer edge; the fast side fades toward price.
 ribbonActive = showMAs and showRibbon
 ribbonBull = emaFast >= emaSlow
 ribbonColor = ribbonBull ? mintColor : roseColor
@@ -291,8 +300,8 @@ plot(showMAs ? smaTrend : na, "Trend SMA", color=color.new(chart.fg_color, 60), 
 fill(fastPlot, slowPlot, top_value=math.max(emaFast, emaSlow), bottom_value=math.min(emaFast, emaSlow),
      top_color=ribbonBull ? ribbonSoft : ribbonDense, bottom_color=ribbonBull ? ribbonDense : ribbonSoft,
      title="EMA cloud ribbon", fillgaps=false)
-plot(showSLB and showLevels and inTrade ? stopPrice : na, "Active stop", color=roseColor, linewidth=1, style=plot.style_linebr)
-plot(showSLB and showLevels and inTrade ? targetPrice : na, "Active target", color=lilacColor, linewidth=1, style=plot.style_linebr)
+plot(showSLB and showLevels ? (inTrade ? stopPrice : stopExit or targetExit ? exitStopLevel : na) : na, "Active stop", color=roseColor, linewidth=1, style=plot.style_linebr)
+plot(showSLB and showLevels ? (inTrade ? targetPrice : stopExit or targetExit ? exitTargetLevel : na) : na, "Active target", color=lilacColor, linewidth=1, style=plot.style_linebr)
 barcolor(showSLB and showBarTint ? inTrade ? color.new(mintColor, 65) : trendOk ? color.new(mintColor, 80) : na : na)
 
 maintainZones(array<box> zones, bool support) =>
@@ -373,6 +382,14 @@ var array<SRVolumeZone> obResistances = array.new<SRVolumeZone>()
 var array<box> obDrawBoxes = array.new<box>()
 var array<line> obDrawLines = array.new<line>()
 
+// A reconfirmed level replaces older zones that overlap it, so one level is never drawn as a stack.
+dropOverlappingZones(array<SRVolumeZone> zones, float top, float bottom) =>
+    if array.size(zones) > 0
+        for i = array.size(zones) - 1 to 0
+            zone = array.get(zones, i)
+            if bottom <= zone.top and top >= zone.bottom
+                array.remove(zones, i)
+
 pruneVolumeZones(array<SRVolumeZone> zones, float target, bool support) =>
     bool breached = false
     if array.size(zones) > 0
@@ -424,10 +441,16 @@ if obModeActive and barstate.isconfirmed
     obResistanceBroken := pruneVolumeZones(obResistances, obTargetResistance, false)
     if not na(obVolumePivot) and obVolumePivot > 0 and high[obLength] > low[obLength]
         if obState == 1 and obTargetSupport >= low[obLength]
+            dropOverlappingZones(obSupports, hl2[obLength], low[obLength])
             array.push(obSupports, SRVolumeZone.new(hl2[obLength], low[obLength], bar_index))
+            while array.size(obSupports) > srKeep
+                array.shift(obSupports)
             obSupportFormed := true
         if obState == 0 and obTargetResistance <= high[obLength]
+            dropOverlappingZones(obResistances, high[obLength], hl2[obLength])
             array.push(obResistances, SRVolumeZone.new(high[obLength], hl2[obLength], bar_index))
+            while array.size(obResistances) > srKeep
+                array.shift(obResistances)
             obResistanceFormed := true
 
 if barstate.islast
@@ -477,39 +500,43 @@ if bearBOS
     if showTradeMarkers
         signalLabel(low - labelGap * 2, "Bearish structure break", roseColor, true, "Confirmed close below the pivot.")
 
-fibHigh = ta.highest(high, fibLookback)
-fibLow = ta.lowest(low, fibLookback)
-fibHighOffset = -ta.highestbars(high, fibLookback)
-fibLowOffset = -ta.lowestbars(low, fibLookback)
+fibPivH = ta.pivothigh(high, bosLeft, bosRight)
+fibPivL = ta.pivotlow(low, bosLeft, bosRight)
+var float fibLastPL = na
+var int fibLastPLBar = na
+var float fibLegHigh = na
+var float fibLegLow = na
+var int fibLegHighBar = na
+var int fibLegLowBar = na
+if barstate.isconfirmed
+    if not na(fibPivH) and not na(fibLastPL) and fibPivH > fibLastPL
+        fibLegHigh := fibPivH
+        fibLegHighBar := bar_index - bosRight
+        fibLegLow := fibLastPL
+        fibLegLowBar := fibLastPLBar
+    if not na(fibPivL)
+        fibLastPL := fibPivL
+        fibLastPLBar := bar_index - bosRight
+    if not na(fibLegLow) and close < fibLegLow
+        fibLegHigh := na
+        fibLegLow := na
+fibHigh = fibLegHigh
+fibLow = fibLegLow
+fibHighOffset = na(fibLegHighBar) ? 0 : bar_index - fibLegHighBar
+fibLowOffset = na(fibLegLowBar) ? 0 : bar_index - fibLegLowBar
 fibRange = fibHigh - fibLow
-fibUp = fibHighOffset < fibLowOffset and fibRange > 0
+fibUp = not na(fibHigh) and not na(fibLow) and fibRange > 0 and fibHighOffset <= fibLookback
 fib618 = fibUp ? fibHigh - fibRange * 0.618 : na
 fib786 = fibUp ? fibHigh - fibRange * 0.786 : na
-fib886 = fibUp ? fibHigh - fibRange * 0.886 : na
-fib1272 = fibUp ? fibLow + fibRange * 1.272 : na
-fib1618 = fibUp ? fibLow + fibRange * 1.618 : na
-fib2000 = fibUp ? fibLow + fibRange * 2.000 : na
-plot(showFibZones ? fib618 : na, "Fib 0.618", color=color.new(peachColor, 25), style=plot.style_linebr)
-plot(showFibZones ? fib786 : na, "Fib 0.786", color=color.new(peachColor, 40), style=plot.style_linebr)
-plot(showFibZones ? fib886 : na, "Fib 0.886", color=color.new(peachColor, 55), style=plot.style_linebr)
-plot(showFibZones ? fib1272 : na, "Fib 1.272", color=color.new(lilacColor, 25), style=plot.style_linebr)
-plot(showFibZones ? fib1618 : na, "Fib 1.618", color=color.new(lilacColor, 40), style=plot.style_linebr)
-plot(showFibZones ? fib2000 : na, "Fib 2.000", color=color.new(lilacColor, 55), style=plot.style_linebr)
 var box fibBuyBox = na
-var box fibSellBox = na
 
 if barstate.islast
     if not na(fibBuyBox)
         box.delete(fibBuyBox)
         fibBuyBox := na
-    if not na(fibSellBox)
-        box.delete(fibSellBox)
-        fibSellBox := na
     if showFibZones and fibUp
         fibBuyBox := box.new(bar_index - fibHighOffset, fib618, bar_index + fibForward, fib786,
              bgcolor=color.new(peachColor, 93), border_color=color.new(peachColor, 75))
-        fibSellBox := box.new(bar_index + 1, fib1618, bar_index + fibForward, fib1272,
-             bgcolor=color.new(lilacColor, 93), border_color=color.new(lilacColor, 75))
 
 type ProfileBar
     int idx
@@ -589,10 +616,13 @@ if barstate.islast
             caption += " · " + str.tostring(missingBars) + " missing volume"
         profileStatus := totalVolume > 0 ? caption : "Profile: no usable volume"
         requestedWidthBars = math.max(1, int(math.round((sampleCount - 1) * vpWidthPct / 100.0)))
-        futureWidthBudget = math.max(1, 499 - vpRightGapBars)
-        maxWidthBars = math.min(requestedWidthBars, futureWidthBudget)
-        profileLeftBar = lastSample.idx + vpRightGapBars
-        profileRightBar = profileLeftBar + maxWidthBars
+        atLatest = lastSample.idx >= last_bar_index
+        freeBars = atLatest ? vpMarginBars - vpRightGapBars : 0
+        profileBeside = freeBars >= vpMinFree
+        profileRightBar = atLatest ? last_bar_index + vpMarginBars : lastSample.idx
+        maxWidthBars = profileBeside ? math.max(1, math.min(freeBars, requestedWidthBars)) : math.max(1, int(math.round((sampleCount - 1) * vpOverlayPct / 100.0)))
+        profileLeftBar = profileRightBar - maxWidthBars
+        drawProfile = not useNativeVRVP and (profileBeside or vpNoSpace == "Overlay last candles")
         if totalVolume > 0 and maxVolume > 0
             pocRow = array.indexof(rowVolumes, maxVolume)
             pocPrice = profileLow + (pocRow + 0.5) * rowHeight
@@ -611,7 +641,7 @@ if barstate.islast
                     coveredVolume += array.get(rowVolumes, vaLowRow)
             valueLow = profileLow + vaLowRow * rowHeight
             valueHigh = profileLow + (vaHighRow + 1) * rowHeight
-            if vpShowVA and vpFillVA and not useNativeVRVP
+            if vpFillVA and drawProfile
                 array.push(vpBoxes, box.new(profileLeftBar, valueHigh, profileRightBar, valueLow, xloc=xloc.bar_index, extend=extend.none,
                      bgcolor=color.new(blueColor, 97), border_color=color.new(blueColor, 100)))
             shelfStarts = array.new_int()
@@ -648,11 +678,11 @@ if barstate.islast
                          text=vpShowLabels ? shelfText : "", text_size=size.tiny,
                          text_color=color.new(chart.fg_color, 25), text_halign=text.align_left))
                     array.set(shelfMasses, strongest, -1.0)
-            if vpShowPOC and not useNativeVRVP
+            if vpShowPOC and drawProfile
                 array.push(vpBoxes, box.new(profileLeftBar, profileLow + (pocRow + 1) * rowHeight,
                      profileRightBar, profileLow + pocRow * rowHeight, xloc=xloc.bar_index, extend=extend.none,
                      bgcolor=color.new(lilacColor, 90), border_color=color.new(lilacColor, 100)))
-            if not useNativeVRVP
+            if drawProfile
                 for r = 0 to rows - 1
                     v = array.get(rowVolumes, r)
                     if v > 0
@@ -666,17 +696,17 @@ if barstate.islast
                         array.push(vpBoxes, box.new(rowLeftBar, bottom + rowHeight * 0.94,
                              profileRightBar, bottom + rowHeight * 0.06, xloc=xloc.bar_index,
                              bgcolor=color.new(tint, transparency), border_color=color.new(tint, 100)))
-            if vpShowVA and not useNativeVRVP
+            if vpShowVA and drawProfile
                 profileLevel(profileLeftBar, profileRightBar, valueHigh, "VAH", blueColor, true)
                 profileLevel(profileLeftBar, profileRightBar, valueLow, "VAL", blueColor, true)
-            if vpShowPOC and not useNativeVRVP
+            if vpShowPOC and drawProfile
                 profileLevel(profileLeftBar, profileRightBar, pocPrice, "POC", lilacColor, false)
         if vpShowLabels and (not useNativeVRVP or vpShowShelves)
-            if not useNativeVRVP and totalVolume > 0 and maxVolume > 0
+            if drawProfile and totalVolume > 0 and maxVolume > 0
                 array.push(vpLabels, label.new(profileLeftBar, profileHigh + priceSpan * 0.025, profileStatus,
                      xloc=xloc.bar_index, style=label.style_label_left,
                      color=color.new(chart.bg_color, 100), textcolor=color.new(chart.fg_color, 20), size=size.tiny,
-                     tooltip="Custom OHLCV approximation. The full custom VPVR is drawn in blank space to the right of the profiled candles; Pine cannot pixel-dock drawings to the viewport edge."))
+                     tooltip="Custom OHLCV approximation. The histogram sits on the chart's right edge, beside the candles when there is empty space."))
             else
                 array.push(vpLabels, label.new(leftTime, profileHigh + priceSpan * 0.025, profileStatus,
                      xloc=xloc.bar_time, style=label.style_label_left,
@@ -909,10 +939,9 @@ mb_col = color.new(mb_baseCandleColor, math.min(100, color.t(mb_baseCandleColor)
 plotcandle(mb_o2, mb_h2, mb_l2, mb_c2, title='heikin smoothed', color=mb_col, wickcolor=mb_col, bordercolor=mb_col,
      display=not mb_enabled ? display.none : mb_show_ha ? display.pane : display.data_window, editable=false)
 
-mb_biasSignChange = ta.change(math.sign(mb_osc_bias))
 mb_strengthSignChange = ta.change(math.sign(mb_osc_bias - mb_osc_smooth))
-mb_bullTrendSwitch = ta.change(mb_biasSignChange > 0)
-mb_bearTrendSwitch = ta.change(mb_biasSignChange < 0)
+mb_bullTrendSwitch = ta.crossover(mb_osc_bias, 0)
+mb_bearTrendSwitch = ta.crossunder(mb_osc_bias, 0)
 alertcondition(mb_enabled and mb_bullTrendSwitch,
   'Bullish Trend Switch (Bearish -> Bullish)', '{{exchange}}:{{ticker}}: Trend is now Bullish.')
 
@@ -930,3 +959,497 @@ alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange < 0,
 
 alertcondition(mb_enabled and mb_osc_bias < 0 and mb_strengthSignChange > 0,
   'Bearish Trend Weakens', '{{exchange}}:{{ticker}}: Bearish Trend is now Weaker.')
+
+// Detector adapted from the HK whale detector in "Fabio + Whale + VRVP" by saivivek0192.
+const string G_WHALE = "11 · Whale dots"
+whaleShow = input.bool(true, "3D whale dots", group=G_WHALE,
+     tooltip="Marks candles whose volume is far above the recent average and whose body is at least 20% of the range (estimated 60/40 buy or sell share). Bigger ball = higher tier. Dojis and spinning tops get no ball.")
+whaleLookback = input.int(50, "Lookback bars", minval=2, maxval=200, group=G_WHALE,
+     tooltip="Daily and higher charts. Intraday charts instead compare each bar with the same time of day on the previous 20 sessions, so the opening and closing rush does not trigger balls.")
+whaleSigma = input.float(1.5, "Sigma", minval=0.5, maxval=10.0, step=0.1, group=G_WHALE,
+     tooltip="Tier 1 = volume above average + sigma x stdev of the previous bars. Tier 2 adds 1.5, tier 3 adds 3.0.")
+// A ball needs an estimated 60% buy (or sell) share: 50% + half the body as a share of the candle range.
+// Kept as a constant so the chart's saved input ids do not shift.
+const float whaleDom = 0.6
+whaleMinTier = input.int(1, "Min tier shown", minval=1, maxval=3, group=G_WHALE)
+
+whaleMix(color c, color target, float t) =>
+    color.rgb(color.r(c) + (color.r(target) - color.r(c)) * t,
+         color.g(c) + (color.g(target) - color.g(c)) * t,
+         color.b(c) + (color.b(target) - color.b(c)) * t)
+
+whaleTier(float vol, float avg, float sd) =>
+    na(avg) or na(sd) ? 0 : vol > avg + sd * (whaleSigma + 3.0) ? 3 : vol > avg + sd * (whaleSigma + 1.5) ? 2 : vol > avg + sd * whaleSigma ? 1 : 0
+
+whaleRange = high - low
+// Body share matched intraday up/down volume better than close location (tested on 28 stocks).
+whaleBuyShare = whaleRange == 0 ? 0.5 : 0.5 + 0.5 * (close - open) / whaleRange
+whaleBarAvg = ta.sma(nz(volume), whaleLookback)[1]
+whaleBarSd = ta.stdev(nz(volume), whaleLookback)[1]
+
+// Intraday: volume of the same time of day over the previous 20 sessions (needs at least 10).
+type WhaleSlot
+    array<float> vols
+const int WHALE_SLOT_DAYS = 20
+var map<int, WhaleSlot> whaleSlots = map.new<int, WhaleSlot>()
+float whaleSlotAvg = na
+float whaleSlotSd = na
+if timeframe.isintraday
+    whaleKey = hour(time, syminfo.timezone) * 60 + minute(time, syminfo.timezone)
+    whaleSlot = whaleSlots.get(whaleKey)
+    if na(whaleSlot)
+        whaleSlot := WhaleSlot.new(array.new<float>())
+        whaleSlots.put(whaleKey, whaleSlot)
+    if whaleSlot.vols.size() >= 10
+        whaleSlotAvg := whaleSlot.vols.avg()
+        whaleSlotSd := whaleSlot.vols.stdev()
+    if barstate.isconfirmed
+        whaleSlot.vols.push(nz(volume))
+        if whaleSlot.vols.size() > WHALE_SLOT_DAYS
+            whaleSlot.vols.shift()
+
+whaleVolTier = timeframe.isintraday ? whaleTier(nz(volume), whaleSlotAvg, whaleSlotSd) : whaleTier(nz(volume), whaleBarAvg, whaleBarSd)
+whaleBuyTier = whaleBuyShare >= whaleDom ? whaleVolTier : 0
+whaleSellTier = 1 - whaleBuyShare >= whaleDom ? whaleVolTier : 0
+wBuy = whaleShow and whaleBuyTier >= whaleMinTier ? whaleBuyTier : 0
+wSell = whaleShow and whaleSellTier >= whaleMinTier ? whaleSellTier : 0
+wBuyY = math.avg(close, low)
+wSellY = math.avg(close, high)
+wLift = nz(atr, high - low) * 0.05
+
+const color WHALE_INK = #2E333C
+wBuyRim = whaleMix(mintColor, WHALE_INK, 0.45)
+wBuyBody = mintColor
+wBuyLight = whaleMix(mintColor, color.white, 0.55)
+wBuyGlint = whaleMix(mintColor, color.white, 0.9)
+wSellRim = whaleMix(roseColor, WHALE_INK, 0.45)
+wSellBody = roseColor
+wSellLight = whaleMix(roseColor, color.white, 0.55)
+wSellGlint = whaleMix(roseColor, color.white, 0.9)
+
+whaleKeep = input.int(240, "Whale ball label budget", minval=30, maxval=400, group=G_WHALE,
+     tooltip="Each ball uses 6 labels. Rounded down to whole balls and clamped to 500 minus the signal label pool, so the oldest ball is always removed complete.")
+whaleScale = input.int(7, "Ball size (tier 1)", minval=3, maxval=14, group=G_WHALE,
+     tooltip="Tier 2 and tier 3 balls are drawn larger than this.")
+whaleTransp = input.int(0, "Ball transparency (%)", minval=0, maxval=95, group=G_WHALE,
+     tooltip="Adds transparency to every layer of the balls. 0 = fully drawn, higher = see-through.")
+var array<label> whaleLabels = array.new<label>()
+const int LABEL_RESERVE = 8
+// Whole balls (6 labels each) within what max_labels_count=500 leaves after the signal label pool.
+whaleBudgetRaw = math.min(whaleKeep, 500 - LABEL_RESERVE - markerKeep)
+whaleBudget = math.max(6, whaleBudgetRaw - whaleBudgetRaw % 6)
+
+whaleDot(float y, int xt, color c, int sz, string tip) =>
+    if array.size(whaleLabels) >= whaleBudget
+        label.delete(array.shift(whaleLabels))
+    array.push(whaleLabels, label.new(xt, y, "", xloc=xloc.bar_time, yloc=yloc.price,
+         style=label.style_circle, color=color.new(c, math.min(100, color.t(c) + whaleTransp)), textcolor=color.new(c, 100), size=sz, tooltip=tip))
+
+whaleBall(int tier, float y, color base, string tip) =>
+    r = whaleScale + (tier - 1) * 3
+    dx = int(nz(chartSeconds, 60) * 1000 * 0.06)
+    whaleDot(y, time, color.new(base, 78), r + 3, tip)
+    whaleDot(y, time, whaleMix(base, WHALE_INK, 0.28), r, tip)
+    whaleDot(y, time, base, math.max(2, r - 2), tip)
+    whaleDot(y + wLift * 0.15, time - dx / 3, whaleMix(base, color.white, 0.35), math.max(2, r - 4), tip)
+    whaleDot(y + wLift * 0.3, time - dx * 2 / 3, whaleMix(base, color.white, 0.7), math.max(2, r - 6), tip)
+    whaleDot(y + wLift * 0.45, time - dx, color.new(color.white, 5), math.max(2, int(r / 4)), tip)
+
+if barstate.isconfirmed and wBuy > 0
+    whaleBall(wBuy, wBuyY, wBuyBody, "Whale buy · tier " + str.tostring(wBuy) + " · estimated from candle shape, not order flow")
+if barstate.isconfirmed and wSell > 0
+    whaleBall(wSell, wSellY, wSellBody, "Whale sell · tier " + str.tostring(wSell) + " · estimated from candle shape, not order flow")
+
+fibLavShow = input.bool(true, "Fib 0.786-0.826 zone", group=G_EXTRA,
+     tooltip="Shades the band between the 0.786 and 0.826 retracements of the automatic Fibonacci swing. Shown when Fibonacci zones are on.")
+fibLavColor = input.color(color.rgb(179, 157, 219), "0.786-0.826 color", group=G_EXTRA, inline="fiblav")
+fibLavTransp = input.int(70, "transparency", minval=0, maxval=100, group=G_EXTRA, inline="fiblav")
+fibGpColor = input.color(color.rgb(214, 204, 240), "Golden pocket (0.618-0.786) color", group=G_EXTRA, inline="fibgp")
+fibGpTransp = input.int(65, "transparency", minval=0, maxval=100, group=G_EXTRA, inline="fibgp")
+fib826 = fibUp ? fibHigh - fibRange * 0.826 : na
+var box fibLavBox = na
+
+if barstate.islast
+    if not na(fibLavBox)
+        box.delete(fibLavBox)
+        fibLavBox := na
+    if showFibZones and fibLavShow and fibUp
+        fibLavBox := box.new(bar_index - fibHighOffset, fib786, bar_index + fibForward, fib826,
+             bgcolor=color.new(fibLavColor, fibLavTransp), border_color=color.new(fibLavColor, 100), border_width=0)
+    if showFibZones and fibUp and not na(fibBuyBox)
+        box.set_bgcolor(fibBuyBox, color.new(fibGpColor, fibGpTransp))
+        box.set_border_color(fibBuyBox, color.new(fibGpColor, 100))
+        box.set_border_width(fibBuyBox, 0)
+
+fibSellShow = input.bool(true, "Fib sell zone (down-swing)", group=G_EXTRA,
+     tooltip="Mirror of the buy zone: after a down-swing, shades the 0.618-0.786 and 0.786-0.826 retracements back up toward the swing high, where selling often returns. Shown when Fibonacci zones are on.")
+fibSellDeepColor = input.color(color.rgb(224, 130, 150), "Sell 0.786-0.826 color", group=G_EXTRA, inline="fibsd")
+fibSellDeepTransp = input.int(70, "transparency", minval=0, maxval=100, group=G_EXTRA, inline="fibsd")
+fibSellGpColor = input.color(color.rgb(242, 196, 204), "Sell 0.618-0.786 color", group=G_EXTRA, inline="fibsg")
+fibSellGpTransp = input.int(65, "transparency", minval=0, maxval=100, group=G_EXTRA, inline="fibsg")
+
+var float fibLastPH = na
+var int fibLastPHBar = na
+var float fibDnHigh = na
+var int fibDnHighBar = na
+var float fibDnLow = na
+var int fibDnLowBar = na
+if barstate.isconfirmed
+    if not na(fibPivL) and not na(fibLastPH) and fibPivL < fibLastPH
+        fibDnLow := fibPivL
+        fibDnLowBar := bar_index - bosRight
+        fibDnHigh := fibLastPH
+        fibDnHighBar := fibLastPHBar
+    if not na(fibPivH)
+        fibLastPH := fibPivH
+        fibLastPHBar := bar_index - bosRight
+    if not na(fibDnHigh) and close > fibDnHigh
+        fibDnHigh := na
+        fibDnLow := na
+fibDnRange = fibDnHigh - fibDnLow
+fibDnLowOffset = na(fibDnLowBar) ? 0 : bar_index - fibDnLowBar
+fibDn = not na(fibDnHigh) and not na(fibDnLow) and fibDnRange > 0 and fibDnLowOffset <= fibLookback
+fibDn618 = fibDn ? fibDnLow + fibDnRange * 0.618 : na
+fibDn786 = fibDn ? fibDnLow + fibDnRange * 0.786 : na
+fibDn826 = fibDn ? fibDnLow + fibDnRange * 0.826 : na
+var box fibSellGpBox = na
+var box fibSellDeepBox = na
+
+if barstate.islast
+    if not na(fibSellGpBox)
+        box.delete(fibSellGpBox)
+        fibSellGpBox := na
+    if not na(fibSellDeepBox)
+        box.delete(fibSellDeepBox)
+        fibSellDeepBox := na
+    if showFibZones and fibSellShow and fibDn
+        fibSellGpBox := box.new(bar_index - fibDnLowOffset, fibDn786, bar_index + fibForward, fibDn618,
+             bgcolor=color.new(fibSellGpColor, fibSellGpTransp), border_color=color.new(fibSellGpColor, 100), border_width=0)
+        fibSellDeepBox := box.new(bar_index - fibDnLowOffset, fibDn826, bar_index + fibForward, fibDn786,
+             bgcolor=color.new(fibSellDeepColor, fibSellDeepTransp), border_color=color.new(fibSellDeepColor, 100), border_width=0)
+
+fibTgtShow = input.bool(true, "Fib target areas (1.272-1.618)", group=G_EXTRA,
+     tooltip="Extension targets of the latest swings: above the swing high for the up-swing buy zone, below the swing low for the down-swing sell zone. Shown when Fibonacci zones are on.")
+fibTgtUpColor = input.color(color.rgb(164, 216, 190), "Up target color", group=G_EXTRA, inline="fibtu")
+fibTgtUpTransp = input.int(75, "transparency", minval=0, maxval=100, group=G_EXTRA, inline="fibtu")
+fibTgtDnColor = input.color(color.rgb(171, 199, 235), "Down target color", group=G_EXTRA, inline="fibtd")
+fibTgtDnTransp = input.int(75, "transparency", minval=0, maxval=100, group=G_EXTRA, inline="fibtd")
+var box fibTgtUpBox = na
+var box fibTgtDnBox = na
+
+if barstate.islast
+    if not na(fibTgtUpBox)
+        box.delete(fibTgtUpBox)
+        fibTgtUpBox := na
+    if not na(fibTgtDnBox)
+        box.delete(fibTgtDnBox)
+        fibTgtDnBox := na
+    if showFibZones and fibTgtShow and fibUp
+        fibTgtUpBox := box.new(bar_index - fibHighOffset, fibLow + fibRange * 1.618, bar_index + fibForward, fibLow + fibRange * 1.272,
+             bgcolor=color.new(fibTgtUpColor, fibTgtUpTransp), border_color=color.new(fibTgtUpColor, 100), border_width=0)
+    if showFibZones and fibTgtShow and fibDn
+        fibTgtDnBox := box.new(bar_index - fibDnLowOffset, fibDnHigh - fibDnRange * 1.272, bar_index + fibForward, fibDnHigh - fibDnRange * 1.618,
+             bgcolor=color.new(fibTgtDnColor, fibTgtDnTransp), border_color=color.new(fibTgtDnColor, 100), border_width=0)
+
+fibLabelShow = input.bool(true, "Fib zone labels", group=G_EXTRA)
+
+fibZoneLabel(box b, string t) =>
+    if not na(b)
+        box.set_text(b, t)
+        box.set_text_size(b, size.tiny)
+        box.set_text_color(b, color.new(chart.fg_color, 45))
+        box.set_text_halign(b, text.align_center)
+        box.set_text_valign(b, text.align_center)
+
+fibEdgeLabel(box b, string t, bool below) =>
+    label lb = na
+    if not na(b)
+        lb := label.new(int(math.round((box.get_left(b) + box.get_right(b)) / 2)), below ? box.get_bottom(b) : box.get_top(b), t,
+             style=below ? label.style_label_up : label.style_label_down, color=color.new(color.black, 100),
+             textcolor=color.new(chart.fg_color, 45), size=size.tiny, textalign=text.align_center)
+    lb
+
+var label fibDeepSellTag = na
+if barstate.islast
+    label.delete(fibDeepSellTag)
+    fibDeepSellTag := na
+    if showFibZones and fibLabelShow
+        fibZoneLabel(fibBuyBox, "buy zone")
+        fibZoneLabel(fibSellGpBox, "sell zone")
+        fibZoneLabel(fibTgtUpBox, "up target")
+        fibZoneLabel(fibTgtDnBox, "down target")
+        fibZoneLabel(fibLavBox, "smart money zone")
+        fibDeepSellTag := fibEdgeLabel(fibSellDeepBox, "deep sell", false)
+
+// =====================================================================
+// 16 · Fundamentals table (stocks and depositary receipts)
+// =====================================================================
+const string G_FUND = "12 · Fundamentals"
+fundShow = input.bool(true, "Fundamentals table", group=G_FUND)
+fundPos = input.string(position.bottom_right, "Table position", group=G_FUND,
+     options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right])
+
+fundRev = request.financial(syminfo.tickerid, "TOTAL_REVENUE", "TTM", ignore_invalid_symbol=true)
+fundOpInc = request.financial(syminfo.tickerid, "OPER_INCOME", "TTM", ignore_invalid_symbol=true)
+fundNetInc = request.financial(syminfo.tickerid, "NET_INCOME", "TTM", ignore_invalid_symbol=true)
+fundFcf = request.financial(syminfo.tickerid, "FREE_CASH_FLOW", "TTM", ignore_invalid_symbol=true)
+fundEps = request.financial(syminfo.tickerid, "EARNINGS_PER_SHARE_DILUTED", "TTM", ignore_invalid_symbol=true)
+fundDebt = request.financial(syminfo.tickerid, "TOTAL_DEBT", "FQ", ignore_invalid_symbol=true)
+fundEquity = request.financial(syminfo.tickerid, "TOTAL_EQUITY", "FQ", ignore_invalid_symbol=true)
+fundCash = request.financial(syminfo.tickerid, "CASH_N_SHORT_TERM_INVEST", "FQ", ignore_invalid_symbol=true)
+fundShares = request.financial(syminfo.tickerid, "DILUTED_SHARES_OUTSTANDING", "FQ", ignore_invalid_symbol=true)
+
+var array<float> fundRevHist = array.new<float>()
+if not na(fundRev) and (array.size(fundRevHist) == 0 or fundRev != array.last(fundRevHist))
+    array.push(fundRevHist, fundRev)
+    if array.size(fundRevHist) > 5
+        array.shift(fundRevHist)
+
+fundMoney(float v) =>
+    a = math.abs(v)
+    s = a >= 1e12 ? str.tostring(a / 1e12, "0.0") + "T" : a >= 1e9 ? str.tostring(a / 1e9, "0.0") + "B" : a >= 1e6 ? str.tostring(a / 1e6, "0.0") + "M" : str.tostring(a, "0")
+    na(v) ? "—" : (v < 0 ? "−$" : "$") + s
+
+fundPct(float v) =>
+    na(v) ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + str.tostring(math.abs(v), "0") + "%"
+
+fundTone(bool good, bool bad) =>
+    good ? color.rgb(8, 153, 129) : bad ? color.rgb(242, 54, 69) : chart.fg_color
+
+var table fundTable = table.new(fundPos, 2, 12, bgcolor=chart.bg_color, frame_color=color.new(chart.fg_color, 85), frame_width=1, border_width=0)
+
+fundRow(int row, string key, string value, color tone) =>
+    table.cell(fundTable, 0, row, key, text_color=color.new(chart.fg_color, GUIDE_MUTED_TEXT_T), text_size=size.tiny,
+         text_halign=text.align_left, bgcolor=chart.bg_color)
+    table.cell(fundTable, 1, row, value, text_color=tone, text_size=size.tiny,
+         text_halign=text.align_right, bgcolor=chart.bg_color)
+
+if barstate.islast
+    table.clear(fundTable, 0, 0, 1, 11)
+    fundEligible = fundShow and (syminfo.type == "stock" or syminfo.type == "dr")
+    fundHasData = not na(fundRev) or not na(fundEps) or not na(fundCash) or not na(fundShares) or not na(syminfo.target_price_average) or not na(earnings.future_time)
+    if fundEligible and fundHasData
+        shares = na(fundShares) ? syminfo.shares_outstanding_total : fundShares
+        mcap = na(shares) ? na : shares * close
+        n = array.size(fundRevHist)
+        revYoY = n >= 5 and array.get(fundRevHist, n - 5) > 0 ? (fundRev / array.get(fundRevHist, n - 5) - 1) * 100 : na
+        opM = fundRev > 0 ? fundOpInc / fundRev * 100 : na
+        netM = fundRev > 0 ? fundNetInc / fundRev * 100 : na
+        negEquity = not na(fundEquity) and fundEquity <= 0
+        lossMaking = not na(fundEps) and fundEps <= 0
+        pe = fundEps > 0 ? close / fundEps : na
+        ps = fundRev > 0 ? mcap / fundRev : na
+        de = fundEquity > 0 ? nz(fundDebt) / fundEquity : na
+        netCash = na(fundCash) ? na : fundCash - nz(fundDebt)
+        tgt = syminfo.target_price_average
+        upside = na(tgt) ? na : (tgt / close - 1) * 100
+        buys = nz(syminfo.recommendations_buy_strong) + nz(syminfo.recommendations_buy)
+        holds = nz(syminfo.recommendations_hold)
+        sells = nz(syminfo.recommendations_sell) + nz(syminfo.recommendations_sell_strong)
+        nextEr = earnings.future_time
+        table.cell(fundTable, 0, 0, "Fundamentals", text_size=size.tiny, text_color=chart.fg_color,
+             text_halign=text.align_left, bgcolor=chart.bg_color)
+        table.cell(fundTable, 1, 0, "TTM", text_size=size.tiny, text_color=color.new(chart.fg_color, GUIDE_MUTED_TEXT_T),
+             text_halign=text.align_right, bgcolor=chart.bg_color)
+        fundRow(1, "Market cap", fundMoney(mcap), chart.fg_color)
+        fundRow(2, "Revenue", fundMoney(fundRev) + " · " + fundPct(revYoY) + " y/y", fundTone(revYoY >= 20, revYoY < 0))
+        fundRow(3, "Operating margin", fundPct(opM), fundTone(opM >= 15, opM < 0))
+        fundRow(4, "Net margin", fundPct(netM), fundTone(netM >= 10, netM < 0))
+        fundRow(5, "Free cash flow", fundMoney(fundFcf), fundTone(fundFcf > 0, fundFcf < 0))
+        fundRow(6, "P/E · P/S", (na(pe) ? (lossMaking ? "loss" : "—") : str.tostring(pe, "0")) + " · " + (na(ps) ? "—" : str.tostring(ps, "0.0")),
+             fundTone(not na(pe) and pe <= 25, lossMaking or pe > 80))
+        fundRow(7, "Debt / equity", na(de) ? (negEquity ? "neg. equity" : "—") : str.tostring(de, "0.00"), fundTone(de <= 0.5, negEquity or de > 2))
+        fundRow(8, "Net cash", fundMoney(netCash), fundTone(netCash > 0, netCash < 0))
+        fundRow(9, "Analyst target", na(tgt) ? "—" : str.tostring(tgt, format.mintick) + " · " + fundPct(upside), fundTone(upside >= 20, upside < 0))
+        analystTxt = buys + holds + sells == 0 ? "—" : str.tostring(buys) + " buy · " + str.tostring(holds) + " hold · " + str.tostring(sells) + " sell"
+        fundRow(10, "Analysts", analystTxt, fundTone(buys > holds + sells, sells > buys))
+        fundRow(11, "Next earnings", na(nextEr) ? "—" : str.format_time(nextEr, "d MMM yyyy", "America/New_York"), chart.fg_color)
+
+// =====================================================================
+// 17 · Automatic trendlines
+// Connects important swing points with straight lines that price has respected:
+// no candle body has crossed the line since its first anchor (wicks may).
+// Lines touched by the most swings win; ties go to the line with the more recent swing.
+// =====================================================================
+const string G_TL = "13 · Trendlines"
+tlShow = input.bool(true, "Automatic trendlines", group=G_TL)
+tlPivot = input.int(10, "Swing strength (bars each side)", minval=3, maxval=30, group=G_TL,
+     tooltip="A swing high needs this many lower highs before it and half as many after it (swing low: higher lows). Higher = fewer, more important points.")
+tlLookback = input.int(300, "Lookback bars", minval=50, maxval=1000, group=G_TL,
+     tooltip="Oldest swing a line may start from.")
+tlPerSide = input.int(2, "Lines per side", minval=1, maxval=4, group=G_TL,
+     tooltip="Up to this many support lines (from swing lows) and resistance lines (from swing highs).")
+tlTolAtr = input.float(0.25, "Touch tolerance (x ATR)", minval=0.05, maxval=1.0, step=0.05, group=G_TL,
+     tooltip="A swing this close to the line counts as a touch. A candle body farther beyond the line breaks it.")
+tlMaxDistAtr = input.float(5.0, "Max distance from price (x ATR)", minval=1.0, maxval=50.0, step=0.5, group=G_TL,
+     tooltip="Lines whose current level is farther from the last close than this are not drawn.")
+tlColor = input.color(color.new(color.rgb(178, 181, 190), 15), "Line color", group=G_TL, inline="tlc")
+tlWidth = input.int(1, "width", minval=1, maxval=4, group=G_TL, inline="tlc")
+tlMinorShow = input.bool(true, "Short-term trendlines", group=G_TL,
+     tooltip="A second, dashed set drawn from smaller swings over a shorter lookback, so recent structure gets lines too.")
+tlMinorPivot = input.int(4, "Short-term swing strength", minval=2, maxval=15, group=G_TL)
+tlMinorLookback = input.int(120, "Short-term lookback bars", minval=30, maxval=500, group=G_TL)
+tlMinorPerSide = input.int(1, "Short-term lines per side", minval=1, maxval=3, group=G_TL)
+
+const int TL_MAX_PIVOTS = 24
+// Half the bars on the right so recent swings can anchor lines sooner.
+tlRight = math.max(2, int(tlPivot / 2))
+tlPH = ta.pivothigh(high, tlPivot, tlRight)
+tlPL = ta.pivotlow(low, tlPivot, tlRight)
+var array<int> tlHiBar = array.new<int>()
+var array<float> tlHiPrice = array.new<float>()
+var array<int> tlLoBar = array.new<int>()
+var array<float> tlLoPrice = array.new<float>()
+// Swings register only on closed bars, so lines do not flicker within a live bar.
+if barstate.isconfirmed and not na(tlPH)
+    tlHiBar.push(bar_index - tlRight)
+    tlHiPrice.push(tlPH)
+while tlHiBar.size() > 0 and (tlHiBar.size() > TL_MAX_PIVOTS or bar_index - tlHiBar.first() > tlLookback)
+    tlHiBar.shift()
+    tlHiPrice.shift()
+if barstate.isconfirmed and not na(tlPL)
+    tlLoBar.push(bar_index - tlRight)
+    tlLoPrice.push(tlPL)
+while tlLoBar.size() > 0 and (tlLoBar.size() > TL_MAX_PIVOTS or bar_index - tlLoBar.first() > tlLookback)
+    tlLoBar.shift()
+    tlLoPrice.shift()
+
+// Short-term swings for the dashed lines.
+tlMinorRight = math.max(2, int(tlMinorPivot / 2))
+tlMPH = ta.pivothigh(high, tlMinorPivot, tlMinorRight)
+tlMPL = ta.pivotlow(low, tlMinorPivot, tlMinorRight)
+var array<int> tlMHiBar = array.new<int>()
+var array<float> tlMHiPrice = array.new<float>()
+var array<int> tlMLoBar = array.new<int>()
+var array<float> tlMLoPrice = array.new<float>()
+if barstate.isconfirmed and not na(tlMPH)
+    tlMHiBar.push(bar_index - tlMinorRight)
+    tlMHiPrice.push(tlMPH)
+while tlMHiBar.size() > 0 and (tlMHiBar.size() > TL_MAX_PIVOTS or bar_index - tlMHiBar.first() > tlMinorLookback)
+    tlMHiBar.shift()
+    tlMHiPrice.shift()
+if barstate.isconfirmed and not na(tlMPL)
+    tlMLoBar.push(bar_index - tlMinorRight)
+    tlMLoPrice.push(tlMPL)
+while tlMLoBar.size() > 0 and (tlMLoBar.size() > TL_MAX_PIVOTS or bar_index - tlMLoBar.first() > tlMinorLookback)
+    tlMLoBar.shift()
+    tlMLoPrice.shift()
+
+// Every valid line through two swings of one side. Support: candle bodies stay above the line.
+// One scan per anchor gives the steepest (support) or flattest (resistance) slope the bodies allow.
+tlCandidates(array<int> bars, array<float> prices, bool isSupport, float tol) =>
+    array<float> scores = array.new<float>()
+    array<int> x1s = array.new<int>()
+    array<float> y1s = array.new<float>()
+    array<float> slopes = array.new<float>()
+    array<int> x2s = array.new<int>()
+    lastK = barstate.isconfirmed ? bar_index : bar_index - 1
+    n = bars.size()
+    if n >= 2
+        for i = 0 to n - 2
+            x1 = bars.get(i)
+            y1 = prices.get(i)
+            if lastK > x1
+                float limit = isSupport ? 1e100 : -1e100
+                for k = x1 + 1 to lastK
+                    o = open[bar_index - k]
+                    c = close[bar_index - k]
+                    edge = isSupport ? math.min(o, c) + tol : math.max(o, c) - tol
+                    b = (edge - y1) / (k - x1)
+                    limit := isSupport ? math.min(limit, b) : math.max(limit, b)
+                for j = i + 1 to n - 1
+                    x2 = bars.get(j)
+                    y2 = prices.get(j)
+                    if x2 > x1
+                        slope = (y2 - y1) / (x2 - x1)
+                        if isSupport ? slope <= limit : slope >= limit
+                            touches = 0
+                            for m = 0 to n - 1
+                                xm = bars.get(m)
+                                if xm >= x1 and math.abs(prices.get(m) - (y1 + slope * (xm - x1))) <= tol
+                                    touches += 1
+                            scores.push(touches * 10000000.0 + x2)
+                            x1s.push(x1)
+                            y1s.push(y1)
+                            slopes.push(slope)
+                            x2s.push(x2)
+    [scores, x1s, y1s, slopes, x2s]
+
+// Draws the best lines of one side. Skips lines far from price, lines whose current level
+// sits within two tolerances of a picked line, lines whose two anchors lie on a picked line,
+// and lines that share an anchor swing with a picked line (no fans from one point).
+tlDrawBest(array<float> scores, array<int> x1s, array<float> y1s, array<float> slopes, array<int> x2s, float tol, float maxDist, float refClose,
+     int perSide, string style, array<float> levels, array<int> pX1, array<float> pY1, array<float> pSl, array<int> pX2, array<line> out) =>
+    used = array.new<bool>(scores.size(), false)
+    for pick = 1 to perSide
+        best = -1
+        for c = 0 to scores.size() - 1
+            if not used.get(c)
+                cx1 = x1s.get(c)
+                cy1 = y1s.get(c)
+                cx2 = x2s.get(c)
+                cy2 = cy1 + slopes.get(c) * (cx2 - cx1)
+                lvNow = cy1 + slopes.get(c) * (bar_index - cx1)
+                skip = math.abs(lvNow - refClose) > maxDist
+                for lv in levels
+                    if math.abs(lv - lvNow) < 2 * tol
+                        skip := true
+                for [p, px] in pX1
+                    py = pY1.get(p)
+                    ps = pSl.get(p)
+                    px2 = pX2.get(p)
+                    if math.abs(py + ps * (cx1 - px) - cy1) <= tol and math.abs(py + ps * (cx2 - px) - cy2) <= tol
+                        skip := true
+                    if cx1 == px or cx1 == px2 or cx2 == px or cx2 == px2
+                        skip := true
+                if not skip and (best < 0 or scores.get(c) > scores.get(best))
+                    best := c
+        if best >= 0
+            used.set(best, true)
+            x1 = x1s.get(best)
+            y1 = y1s.get(best)
+            sl = slopes.get(best)
+            yNow = y1 + sl * (bar_index - x1)
+            levels.push(yNow)
+            pX1.push(x1)
+            pY1.push(y1)
+            pSl.push(sl)
+            pX2.push(x2s.get(best))
+            out.push(line.new(x1, y1, bar_index, yNow, xloc=xloc.bar_index, extend=extend.right,
+                 color=tlColor, style=style, width=tlWidth))
+
+var array<line> tlLines = array.new<line>()
+if barstate.islast
+    for l in tlLines
+        l.delete()
+    tlLines.clear()
+    if tlShow
+        // Same bar set as the body scan: on a forming bar use the last closed bar's ATR and close.
+        tlAtrRef = barstate.isconfirmed ? nz(atr, high - low) : nz(atr[1], high[1] - low[1])
+        tlCloseRef = barstate.isconfirmed ? close : close[1]
+        tlTol = tlTolAtr * tlAtrRef
+        tlMaxDist = tlMaxDistAtr * tlAtrRef
+        // Picked-line memory per side, shared by the major and short-term passes so they never duplicate.
+        array<float> sLv = array.new<float>()
+        array<int> sPX1 = array.new<int>()
+        array<float> sPY1 = array.new<float>()
+        array<float> sPSl = array.new<float>()
+        array<int> sPX2 = array.new<int>()
+        array<float> rLv = array.new<float>()
+        array<int> rPX1 = array.new<int>()
+        array<float> rPY1 = array.new<float>()
+        array<float> rPSl = array.new<float>()
+        array<int> rPX2 = array.new<int>()
+        [sScore, sX1, sY1, sSlope, sX2] = tlCandidates(tlLoBar, tlLoPrice, true, tlTol)
+        [rScore, rX1, rY1, rSlope, rX2] = tlCandidates(tlHiBar, tlHiPrice, false, tlTol)
+        if sScore.size() > 0
+            tlDrawBest(sScore, sX1, sY1, sSlope, sX2, tlTol, tlMaxDist, tlCloseRef, tlPerSide, line.style_solid, sLv, sPX1, sPY1, sPSl, sPX2, tlLines)
+        if rScore.size() > 0
+            tlDrawBest(rScore, rX1, rY1, rSlope, rX2, tlTol, tlMaxDist, tlCloseRef, tlPerSide, line.style_solid, rLv, rPX1, rPY1, rPSl, rPX2, tlLines)
+        if tlMinorShow
+            [msScore, msX1, msY1, msSlope, msX2] = tlCandidates(tlMLoBar, tlMLoPrice, true, tlTol)
+            [mrScore, mrX1, mrY1, mrSlope, mrX2] = tlCandidates(tlMHiBar, tlMHiPrice, false, tlTol)
+            if msScore.size() > 0
+                tlDrawBest(msScore, msX1, msY1, msSlope, msX2, tlTol, tlMaxDist, tlCloseRef, tlMinorPerSide, line.style_dashed, sLv, sPX1, sPY1, sPSl, sPX2, tlLines)
+            if mrScore.size() > 0
+                tlDrawBest(mrScore, mrX1, mrY1, mrSlope, mrX2, tlTol, tlMaxDist, tlCloseRef, tlMinorPerSide, line.style_dashed, rLv, rPX1, rPY1, rPSl, rPX2, tlLines)
