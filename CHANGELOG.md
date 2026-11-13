@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Rename the Fibonacci 0.786–0.826 zone label from "smart money zone" to "dippity zone". Display text only.
+
 ## 0.4.0
 
 - Rename the indicator to **ALL-IN-1** (title and short title). Saved chart instances keep working but show the new name.

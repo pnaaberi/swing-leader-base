@@ -1178,7 +1178,7 @@ if barstate.islast
         fibZoneLabel(fibSellGpBox, "sell zone")
         fibZoneLabel(fibTgtUpBox, "up target")
         fibZoneLabel(fibTgtDnBox, "down target")
-        fibZoneLabel(fibLavBox, "smart money zone")
+        fibZoneLabel(fibLavBox, "dippity zone")
         fibDeepSellTag := fibEdgeLabel(fibSellDeepBox, "deep sell", false)
 
 // =====================================================================
